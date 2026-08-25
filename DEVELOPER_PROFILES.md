@@ -23,3 +23,11 @@
 - Tools: VS Code, GitHub Desktop, Figma, Claude
 - Field of Focus in Computer Science: Web/Software Development
 - Fun Fact or Goal: My goal is to survive, learn more skills, and improve on my current skills
+
+## Adrian Moser
+
+- Preferred Name: Moser
+- Skills: Python, Java, C, Basic SQL, UI/UX
+- Tools: VS Code, GitHub Desktop, Canva, Figma
+- Field of Focus in Computer Science: UI/UX design
+- Fun Fact or Goal: The goal of mine is to pass and retain the understanding of all courses this sem
