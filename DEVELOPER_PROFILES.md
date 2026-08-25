@@ -15,3 +15,11 @@
 - Tools: VS Code, Figma, Git
 - Field of Focus in Computer Science: Data Science
 - Fun Fact or Goal: I want to learn how teams collaborate using pull requests. And blow things up.
+
+## John Matthew Fallarme
+
+- Preferred Name: Matthew
+- Skills: Python, Web Development, UI/UX design
+- Tools: VS Code, Figma, Git
+- Field of Focus in Computer Science: Data Science and Web Development
+- Fun Fact or Goal: I want to excel more in programming
