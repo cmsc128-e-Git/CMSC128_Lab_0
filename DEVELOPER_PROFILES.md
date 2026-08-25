@@ -31,3 +31,11 @@
 - Tools: VS Code, GitHub Desktop, Canva, Figma
 - Field of Focus in Computer Science: UI/UX design
 - Fun Fact or Goal: The goal of mine is to pass and retain the understanding of all courses this sem
+
+## Jasper Espartero
+
+- Preferred Name: Jasper
+- Skills: HTML, Python, Java
+- Tools: VS Code, GitHub Desktop, Figma
+- Field of Focus in Computer Science: Software Engineering
+- Fun Fact or Goal: I want to learn more programming languages and be consistent.
