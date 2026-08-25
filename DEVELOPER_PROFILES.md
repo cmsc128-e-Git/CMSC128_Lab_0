@@ -15,3 +15,11 @@
 - Tools: VS Code, GitHub Desktop, Figma, Claude
 - Field of Focus in Computer Science: Web/Game Development
 - Fun Fact or Goal: My goal is to learn more skills to find success in making my vision a reality 
+
+## Ralph Ryan Escabarte
+
+- Preferred Name: RR
+- Skills: Basic JavaScript, HTML, Python, Java, C, Basic SQL
+- Tools: VS Code, GitHub Desktop, Figma, Claude
+- Field of Focus in Computer Science: Web/Software Development
+- Fun Fact or Goal: My goal is to survive, learn more skills, and improve on my current skills
