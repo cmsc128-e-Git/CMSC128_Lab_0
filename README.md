@@ -8,6 +8,10 @@ This repository will be the main repo for the version control of MassTrack.
 Kanban - https://trello.com/b/yQC0Jcqa/kanban-masstrack-cmsc134
 Figma - https://www.figma.com/design/8qMSawgLQJq92RFbOcDb9X/MassTrack-App-Wireframe?node-id=0-1&t=NgyijZztLb2xFwJc-1
 
+## Site Map
+
+## Data Model (ER)
+![Diagram of masstrack's ER](masstrackER.drawio.png)
 
 ## Group Members
 
