@@ -3,6 +3,15 @@
 This repository will be the main repo for the version control of MassTrack.  
 This repository was previously used for Lab 0.
 
+## Group Members
+
+- John Benedict Aparicio    
+- Ralph Ryan Escabarte
+- Jasper Espartero
+- John Matthew Fallarme
+- Adrian Moser
+
+
 
 # Links:
 Kanban - https://trello.com/b/yQC0Jcqa/kanban-masstrack-cmsc134  
@@ -13,11 +22,11 @@ Figma - https://www.figma.com/design/8qMSawgLQJq92RFbOcDb9X/MassTrack-App-Wirefr
 ## Data Model (ER)
 ![Diagram of masstrack's ER](masstrackER.drawio.png)
 
-## Group Members
-
-- John Benedict Aparicio    
-- Ralph Ryan Escabarte
-- Jasper Espartero
-- John Matthew Fallarme
-- Adrian Moser
-
+---
+# Dev Instructions
+- Open terminal in vscode
+```
+    cd masstrack
+    npm install
+```
+- Then you can begin developing!
