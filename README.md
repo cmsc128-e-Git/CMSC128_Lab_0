@@ -24,6 +24,7 @@ Figma - https://www.figma.com/design/8qMSawgLQJq92RFbOcDb9X/MassTrack-App-Wirefr
 
 ---
 # Dev Instructions
+- Requires Node.js 22.13 or newer (check with `node -v`)
 - Open terminal in vscode
 ```
     cd masstrack
