@@ -19,15 +19,15 @@ export default function Settings() {
       <Text style={[styles.heading, { color: c.text }]}>Appearance</Text>
 
       {/* Segmented control: all choices visible at once; the selected one is a filled accent segment. */}
-      <View accessibilityRole="radiogroup" accessibilityLabel="Appearance" style={[styles.group, { backgroundColor: c.surface, borderColor: c.border }]}>
+      <View role="radiogroup" aria-label="Appearance" style={[styles.group, { backgroundColor: c.surface, borderColor: c.border }]}>
         {options.map(({ value, label }) => {
           const selected = value === preference;
           return (
             <Pressable
               key={value}
-              accessibilityRole="radio"
-              accessibilityState={{ selected }}
-              accessibilityLabel={label}
+              role="radio"
+              aria-checked={selected}
+              aria-label={label}
               onPress={() => setThemePreference(value)}
               style={[styles.option, selected && { backgroundColor: c.accent }]}
             >
