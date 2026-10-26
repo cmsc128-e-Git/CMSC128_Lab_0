@@ -1,0 +1,10 @@
+{
+  "Platypus": {
+    "desc": "An egg-laying mammal native to eastern Australia.",
+    "traits": [
+      "Egg-laying mammal",
+      "Semi-aquatic",
+      "Venomous spur on the hind foot"
+    ]
+  }
+}
