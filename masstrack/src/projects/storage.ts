@@ -17,6 +17,25 @@ export function saveProject(document: ProjectDocument): ProjectDocument {
   return savedDocument;
 }
 
+export function renameProject(projectId: string, name: string): ProjectDocument {
+  const document = loadProject(projectId);
+  if (document === null) {
+    throw new Error("Project not found.");
+  }
+
+  const projectName = name.trim();
+  if (!projectName) {
+    throw new Error("Project name cannot be empty.");
+  }
+
+  return saveProject({
+    project: {
+      ...document.project,
+      name: projectName,
+    },
+  });
+}
+
 export function loadProject(projectId: string): ProjectDocument | null {
   const value = storage.getItemSync(projectKey(projectId));
   return value === null ? null : parseProjectDocument(value);
@@ -48,11 +67,11 @@ function parseProjectDocument(value: string): ProjectDocument {
 }
 
 function isProjectDocument(value: unknown): value is ProjectDocument {
-  if (!value || typeof value !== "object" || !("project" in value)) return false;
+  if (!isRecord(value) || !isRecord(value.project)) return false;
   const project = value.project;
-  if (!project || typeof project !== "object" || !("data_block" in project)) return false;
+  if (!isRecord(project.data_block)) return false;
   const dataBlock = project.data_block;
-  if (!dataBlock || typeof dataBlock !== "object" || !("organisms" in dataBlock)) return false;
+  if (!isRecord(dataBlock.organisms)) return false;
   const organisms = dataBlock.organisms;
 
   return (
@@ -62,15 +81,17 @@ function isProjectDocument(value: unknown): value is ProjectDocument {
     typeof project.date_last_edited === "string" &&
     typeof dataBlock.datablock_id === "string" &&
     typeof dataBlock.project_id === "string" &&
-    !!organisms &&
-    typeof organisms === "object" &&
     typeof organisms.organisms_id === "string" &&
     typeof organisms.datablock_id === "string" &&
     Array.isArray(organisms.species) &&
-    organisms.species.every((species) => typeof species === "string") &&
+    organisms.species.every((species: unknown) => typeof species === "string") &&
     Array.isArray(organisms.equations) &&
-    organisms.equations.every((equation) => typeof equation === "string")
+    organisms.equations.every((equation: unknown) => typeof equation === "string")
   );
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
 function projectKey(projectId: string): string {

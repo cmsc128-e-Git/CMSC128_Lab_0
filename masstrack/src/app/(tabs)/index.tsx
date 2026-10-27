@@ -1,34 +1,16 @@
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { SymbolView, type SymbolViewProps } from "expo-symbols";
-import { useMemo, useState } from "react";
-import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { useCallback, useMemo, useState } from "react";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Button } from "@/components/Button";
+import { createProject, type ProjectDocument } from "@/projects/model";
+import { loadProjects, renameProject, saveProject } from "@/projects/storage";
 import { useColors } from "@/theme";
 
 // iOS uses SF Symbols; Android and web use Material Symbols (same pattern as the tab layout).
 const icon = (ios: string, android: string) => ({ ios, android, web: android }) as SymbolViewProps["name"];
 
-type Project = {
-  id: string;
-  name: string;
-  plots: number;
-  species: string[];
-  edited: number; // epoch ms
-  synced: boolean;
-  photo?: string; // uri; falls back to a placeholder tile
-};
-
 const HOUR = 3_600_000;
-const ago = (hours: number) => Date.now() - hours * HOUR;
-
-// Sample data from the Figma frame until projects are saved on the phone ("Project Initialization" on the board).
-const PROJECTS: Project[] = [
-  { id: "1", name: "Mt. Baloy Quadrat Survey", plots: 24, species: ["Narra", "Mahogany", "Gmelina"], edited: ago(2), synced: false },
-  { id: "2", name: "Riparian Transect A", plots: 12, species: ["Narra", "Falcata", "Mahogany", "Gmelina", "Bamboo"], edited: ago(26), synced: false },
-  { id: "3", name: "Mangrove Plot Set 2", plots: 8, species: ["Bakawan", "Pagatpat"], edited: ago(96), synced: false },
-  { id: "4", name: "Tigbauan Nursery Plots", plots: 16, species: ["Narra", "Mahogany", "Falcata", "Gmelina"], edited: ago(24 * 12), synced: true },
-  { id: "5", name: "Banate Coastal Survey", plots: 30, species: ["Bakawan", "Pagatpat", "Nipa"], edited: ago(24 * 40), synced: true },
-];
 
 const PREVIEW_COUNT = 3;
 // TODO: replace with real connectivity (e.g. @react-native-community/netinfo) when sync exists.
@@ -61,20 +43,58 @@ export default function Projects() {
   const [query, setQuery] = useState("");
   const [sortByName, setSortByName] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [projects, setProjects] = useState<ProjectDocument[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState("");
+
+  useFocusEffect(
+    useCallback(() => {
+      setProjects(loadProjects());
+    }, []),
+  );
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const matches = PROJECTS.filter(
-      (p) => p.name.toLowerCase().includes(q) || p.species.some((s) => s.toLowerCase().includes(q)),
+    const matches = projects.filter(
+      (document) =>
+        document.project.name.toLowerCase().includes(q) ||
+        document.project.data_block.organisms.species.some((species) => species.toLowerCase().includes(q)),
     );
-    return matches.sort((a, b) => (sortByName ? a.name.localeCompare(b.name) : b.edited - a.edited));
-  }, [query, sortByName]);
+    return matches.sort((a, b) =>
+      sortByName
+        ? a.project.name.localeCompare(b.project.name)
+        : Date.parse(b.project.date_last_edited) - Date.parse(a.project.date_last_edited),
+    );
+  }, [projects, query, sortByName]);
 
   // Searching shows every match; "See all" only applies to the default list.
   const searching = query.trim().length > 0;
   const visible = searching || showAll ? results : results.slice(0, PREVIEW_COUNT);
   const canExpand = !searching && results.length > PREVIEW_COUNT;
-  const waiting = PROJECTS.filter((p) => !p.synced).length;
+  const waiting = projects.length;
+
+  function startRename(document: ProjectDocument) {
+    setEditingId(document.project.project_id);
+    setEditingName(document.project.name);
+  }
+
+  function finishRename(projectId: string) {
+    try {
+      const renamed = renameProject(projectId, editingName);
+      setProjects((current) =>
+        current.map((document) => (document.project.project_id === projectId ? renamed : document)),
+      );
+      setEditingId(null);
+    } catch (error) {
+      Alert.alert("Unable to rename project", error instanceof Error ? error.message : "Please try again.");
+    }
+  }
+
+  function createNewProject() {
+    const created = saveProject(createProject("New Project"));
+    setProjects((current) => [...current, created]);
+    router.push({ pathname: "/input", params: { projectId: created.project.project_id } });
+  }
 
   return (
     <ScrollView style={{ backgroundColor: c.bg }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -102,7 +122,7 @@ export default function Projects() {
         </Pressable>
       </View>
 
-      <Button title="+ New Project" onPress={() => router.navigate("/input")} />
+      <Button title="+ New Project" onPress={createNewProject} />
 
       <View style={styles.sectionRow}>
         <Text style={[styles.section, { color: c.text }]}>
@@ -115,39 +135,91 @@ export default function Projects() {
         )}
       </View>
 
-      {visible.map((p) => (
-        <Pressable
-          key={p.id}
-          accessibilityRole="button"
-          accessibilityLabel={`${p.name}, ${plural(p.plots, "plot")}, ${plural(p.species.length, "species")}`}
-          // TODO: open the project detail screen once it exists.
-          onPress={() => {}}
-          style={({ pressed }) => [
-            styles.card,
-            { backgroundColor: c.surface, borderColor: c.border, opacity: pressed ? 0.7 : 1 },
-          ]}
-        >
-          {p.photo ? (
-            <Image source={{ uri: p.photo }} style={styles.photo} />
-          ) : (
+      {visible.map((p) => {
+        const id = p.project.project_id;
+        const isEditing = editingId === id;
+
+        // Text (+ pill). Contains no buttons, so it can sit inside a Pressable or a View.
+        const body = (
+          <>
+            <View style={styles.cardText}>
+              {isEditing ? (
+                <TextInput
+                  value={editingName}
+                  onChangeText={setEditingName}
+                  autoFocus
+                  accessibilityLabel="Project name"
+                  onSubmitEditing={() => finishRename(id)}
+                  style={[styles.renameInput, { color: c.text, borderColor: c.accent }]}
+                />
+              ) : (
+                <Text style={[styles.name, { color: c.text }]} numberOfLines={2}>
+                  {p.project.name}
+                </Text>
+              )}
+              <Text style={[styles.meta, { color: c.muted }]}>
+                {plural(p.project.data_block.organisms.species.length, "species")}
+              </Text>
+              <Text style={[styles.meta, { color: c.muted }]}>
+                edited {formatEdited(Date.parse(p.project.date_last_edited))}
+              </Text>
+            </View>
+            {!isEditing && (
+              <View style={[styles.pill, { backgroundColor: c.bg, borderColor: c.border }]}>
+                <Text style={[styles.pillLabel, { color: c.muted }]}>Saved offline</Text>
+              </View>
+            )}
+          </>
+        );
+
+        return (
+          <View
+            key={id}
+            style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}
+          >
+            {/* Pencil comes first (left of the name). It's a sibling of the main area, never a descendant. */}
+            {!isEditing && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Rename ${p.project.name}`}
+                onPress={() => startRename(p)}
+                style={styles.pencil}
+              >
+                <SymbolView name={icon("pencil", "edit")} tintColor={c.accent} size={20} />
+              </Pressable>
+            )}
+
+            {/* While renaming, the main area is a plain View so the TextInput isn't inside a button. */}
+            {isEditing ? (
+              <View style={styles.cardMain}>{body}</View>
+            ) : (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Open ${p.project.name}`}
+                onPress={() => router.push({ pathname: "/input", params: { projectId: id } })}
+                style={({ pressed }) => [styles.cardMain, { opacity: pressed ? 0.7 : 1 }]}
+              >
+                {body}
+              </Pressable>
+            )}
+
+            {isEditing && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Save project name"
+                onPress={() => finishRename(id)}
+                style={styles.renameButton}
+              >
+                <Text style={[styles.renameAction, { color: c.accent }]}>Save</Text>
+              </Pressable>
+            )}
+
             <View style={[styles.photo, styles.photoEmpty, { backgroundColor: c.bg, borderColor: c.border }]}>
               <SymbolView name={icon("photo", "image")} tintColor={c.muted} size={22} />
             </View>
-          )}
-          <View style={styles.cardText}>
-            <Text style={[styles.name, { color: c.text }]} numberOfLines={2}>
-              {p.name}
-            </Text>
-            <Text style={[styles.meta, { color: c.muted }]}>
-              {plural(p.plots, "plot")} · {p.species.length} species
-            </Text>
-            <Text style={[styles.meta, { color: c.muted }]}>edited {formatEdited(p.edited)}</Text>
           </View>
-          <View style={[styles.pill, { backgroundColor: c.bg, borderColor: c.border }]}>
-            <Text style={[styles.pillLabel, { color: c.muted }]}>{p.synced ? "Synced" : "Saved offline"}</Text>
-          </View>
-        </Pressable>
-      ))}
+        );
+      })}
 
       {visible.length === 0 && (
         <Text style={[styles.empty, { color: c.muted }]}>No projects match “{query.trim()}”.</Text>
@@ -195,10 +267,15 @@ const styles = StyleSheet.create({
   section: { fontSize: 17, fontWeight: "600" },
   seeAll: { minHeight: 48, minWidth: 48, alignItems: "flex-end", justifyContent: "center" },
   link: { fontSize: 15, fontWeight: "600" },
-  card: { flexDirection: "row", alignItems: "center", minHeight: 80, borderWidth: 1, borderRadius: 12, padding: 12, gap: 12 },
+  card: { flexDirection: "row", alignItems: "center", minHeight: 80, borderWidth: 1, borderRadius: 12, padding: 12, gap: 8 },
+  cardMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
   photo: { width: 56, height: 56, borderRadius: 8 },
   photoEmpty: { borderWidth: 1, alignItems: "center", justifyContent: "center" },
   cardText: { flex: 1, gap: 2 },
+  renameInput: { minHeight: 36, borderBottomWidth: 1, fontSize: 16 },
+  renameButton: { minHeight: 44, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
+  renameAction: { fontSize: 14, fontWeight: "600" },
+  pencil: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   name: { fontSize: 16, fontWeight: "600" },
   meta: { fontSize: 14 },
   pill: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 5 },
