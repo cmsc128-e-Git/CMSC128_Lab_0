@@ -102,7 +102,7 @@ export default function Projects() {
         </Pressable>
       </View>
 
-      <Button title="+ New vegetation analysis" onPress={() => router.navigate("/input")} />
+      <Button title="+ New Project" onPress={() => router.navigate("/input")} />
 
       <View style={styles.sectionRow}>
         <Text style={[styles.section, { color: c.text }]}>
