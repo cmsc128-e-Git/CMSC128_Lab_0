@@ -51,17 +51,27 @@ function readProjectIds(): string[] {
   const value = storage.getItemSync(PROJECT_INDEX_KEY);
   if (value === null) return [];
 
-  const parsed: unknown = JSON.parse(value);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    return [];
+  }
   if (!Array.isArray(parsed) || !parsed.every((id): id is string => typeof id === "string")) {
-    throw new Error("Stored project index is invalid.");
+    return [];
   }
   return parsed;
 }
 
-function parseProjectDocument(value: string): ProjectDocument {
-  const parsed: unknown = JSON.parse(value);
+function parseProjectDocument(value: string): ProjectDocument | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    return null;
+  }
   if (!isProjectDocument(parsed)) {
-    throw new Error("Stored project data is invalid.");
+    return null;
   }
   return parsed;
 }
