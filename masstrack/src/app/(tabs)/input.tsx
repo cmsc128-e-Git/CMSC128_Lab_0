@@ -2,6 +2,8 @@ import { useLocalSearchParams } from "expo-router";
 import { SymbolView, type SymbolViewProps } from "expo-symbols";
 import { type ReactNode, useMemo, useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { calculate_formula, get_formula } from "@/dependencies/formulas/registry";
+import { find_species } from "@/dependencies/species/species";
 import { loadInputDraft, saveInputDraft, type InputDraft } from "@/projects/inputDraft";
 import { loadProject, saveProject } from "@/projects/storage";
 import { useColors } from "@/theme";
@@ -16,7 +18,8 @@ const STEP_HELPERS = [
   "Check the selected equation and calculated result before continuing.",
   "Confirm every entry before saving the analysis.",
 ];
-const SPECIES = ["Narra (Pterocarpus indicus)", "Mahogany (Swietenia macrophylla)", "Falcata (Falcataria moluccana)"];
+const SPECIES = find_species("").map(({ species_name }) => species_name);
+const BASAL_AREA_FORMULA = get_formula("basal_area");
 const SAMPLING_METHODS = ["Quadrat", "Transect", "Point sampling"];
 const UNITS = ["cm", "m"];
 
@@ -73,9 +76,14 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 }
 
 export default function Input() {
-  const c = useColors();
   const { projectId } = useLocalSearchParams<{ projectId?: string }>();
   const activeProjectId = typeof projectId === "string" ? projectId : null;
+
+  return <GuidedInput key={activeProjectId ?? "no-project"} activeProjectId={activeProjectId} />;
+}
+
+function GuidedInput({ activeProjectId }: { activeProjectId: string | null }) {
+  const c = useColors();
   const project = useMemo(() => (activeProjectId ? loadProject(activeProjectId) : null), [activeProjectId]);
   const initialDraft = useMemo(() => (activeProjectId ? loadInputDraft(activeProjectId) : null), [activeProjectId]);
   const initialDiameter = initialDraft?.measurements.find((entry) => entry.label === "Diameter at breast height");
@@ -86,7 +94,7 @@ export default function Input() {
   const [location, setLocation] = useState(initialDraft?.site.location ?? "");
   const [plotNumber, setPlotNumber] = useState(initialDraft?.site.plotNumber ?? "");
   const [samplingMethod, setSamplingMethod] = useState(initialDraft?.site.samplingMethod ?? SAMPLING_METHODS[0]);
-  const [species, setSpecies] = useState(initialDraft?.species ?? SPECIES[0]);
+  const [species, setSpecies] = useState(initialDraft?.species ?? SPECIES[0] ?? "");
   const [individualCount, setIndividualCount] = useState(initialDraft?.individualCount ?? "1");
   const [dbh, setDbh] = useState(initialDiameter?.value ?? "");
   const [height, setHeight] = useState(initialHeight?.value ?? "");
@@ -96,7 +104,7 @@ export default function Input() {
   const basalArea = useMemo(() => {
     if (!isPositiveNumber(dbh)) return null;
     const diameterInCm = dbhUnit === "m" ? Number(dbh) * 100 : Number(dbh);
-    return Math.PI * Math.pow(diameterInCm / 2, 2);
+    return calculate_formula("basal_area", diameterInCm) ?? null;
   }, [dbh, dbhUnit]);
 
   function buildDraft(): InputDraft {
@@ -106,7 +114,7 @@ export default function Input() {
       individualCount: individualCount.trim(),
       measurements: [
         { label: "Diameter at breast height", value: dbh.trim(), unit: dbhUnit },
-        ...(height.trim() ? [{ label: "Tree height", value: height.trim(), unit: heightUnit }] : []),
+        { label: "Tree height", value: height.trim() || null, unit: heightUnit },
       ],
     };
   }
@@ -143,7 +151,9 @@ export default function Input() {
           organisms: {
             ...organisms,
             species: Array.from(new Set([...organisms.species, species])),
-            equations: Array.from(new Set([...organisms.equations, "BA = π × (D/2)²"])),
+            equations: BASAL_AREA_FORMULA?.expression
+              ? Array.from(new Set([...organisms.equations, BASAL_AREA_FORMULA.expression]))
+              : organisms.equations,
           },
         },
       },
@@ -228,7 +238,7 @@ function SpeciesStep({ species, setSpecies, individualCount, setIndividualCount 
 type MeasureStepProps = { species: string; dbh: string; setDbh: (v: string) => void; height: string; setHeight: (v: string) => void; dbhUnit: string; setDbhUnit: (v: string) => void; heightUnit: string; setHeightUnit: (v: string) => void };
 function MeasureStep(props: MeasureStepProps) {
   const c = useColors();
-  return <View style={styles.stepContent}><Field label="Species"><View style={[styles.readOnlyField, { backgroundColor: c.surface, borderColor: c.border }]}><Text numberOfLines={1} style={[styles.dropdownText, { color: c.text }]}>{props.species}</Text></View></Field><View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}><View style={styles.cardHeading}><View style={[styles.equationBadge, { backgroundColor: c.bg, borderColor: c.border }]}><Text style={[styles.badgeText, { color: c.muted }]}>Eq.1</Text></View><View style={styles.cardTitleBlock}><Text style={[styles.cardTitle, { color: c.text }]}>Individual Biomass</Text><Text style={[styles.formula, { color: c.muted }]}>BA = π × (D/2)²</Text></View><SymbolView name={icon("chevron.down", "keyboard_arrow_down")} tintColor={c.muted} size={18} /></View><View style={[styles.divider, { backgroundColor: c.border }]} /><MeasurementField label="Diameter at breast height (D) *" value={props.dbh} onChange={props.setDbh} unit={props.dbhUnit} onUnitChange={props.setDbhUnit} /><MeasurementField label="Tree height (H)" value={props.height} onChange={props.setHeight} unit={props.heightUnit} onUnitChange={props.setHeightUnit} /><View style={[styles.note, { backgroundColor: c.bg, borderColor: c.border }]}><Text style={[styles.noteText, { color: c.muted }]}>D = diameter measured 1.3 m above ground.</Text><Text style={[styles.dictionaryText, { color: c.accent }]}>Definition available in the Species Dictionary</Text></View></View></View>;
+  return <View style={styles.stepContent}><Field label="Species"><View style={[styles.readOnlyField, { backgroundColor: c.surface, borderColor: c.border }]}><Text numberOfLines={1} style={[styles.dropdownText, { color: c.text }]}>{props.species}</Text></View></Field><View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}><View style={styles.cardHeading}><View style={[styles.equationBadge, { backgroundColor: c.bg, borderColor: c.border }]}><Text style={[styles.badgeText, { color: c.muted }]}>Eq.1</Text></View><View style={styles.cardTitleBlock}><Text style={[styles.cardTitle, { color: c.text }]}>Basal area</Text><Text style={[styles.formula, { color: c.muted }]}>{BASAL_AREA_FORMULA?.expression ?? "Formula unavailable"}</Text></View><SymbolView name={icon("chevron.down", "keyboard_arrow_down")} tintColor={c.muted} size={18} /></View><View style={[styles.divider, { backgroundColor: c.border }]} /><MeasurementField label="Diameter at breast height (D) *" value={props.dbh} onChange={props.setDbh} unit={props.dbhUnit} onUnitChange={props.setDbhUnit} /><MeasurementField label="Tree height (H)" value={props.height} onChange={props.setHeight} unit={props.heightUnit} onUnitChange={props.setHeightUnit} /><View style={[styles.note, { backgroundColor: c.bg, borderColor: c.border }]}><Text style={[styles.noteText, { color: c.muted }]}>D = diameter measured 1.3 m above ground.</Text><Text style={[styles.dictionaryText, { color: c.accent }]}>Definition available in the Species Dictionary</Text></View></View></View>;
 }
 
 function MeasurementField({ label, value, onChange, unit, onUnitChange }: { label: string; value: string; onChange: (v: string) => void; unit: string; onUnitChange: (v: string) => void }) {
@@ -238,14 +248,14 @@ function MeasurementField({ label, value, onChange, unit, onUnitChange }: { labe
 
 function ComputeStep({ species, dbh, dbhUnit, basalArea }: { species: string; dbh: string; dbhUnit: string; basalArea: number | null }) {
   const c = useColors();
-  return <View style={styles.stepContent}><View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}><View style={styles.cardHeading}><View style={[styles.equationBadge, { backgroundColor: c.bg, borderColor: c.border }]}><Text style={[styles.badgeText, { color: c.muted }]}>Eq.1</Text></View><View style={styles.cardTitleBlock}><Text style={[styles.cardTitle, { color: c.text }]}>Basal area</Text><Text style={[styles.formula, { color: c.muted }]}>BA = π × (D/2)²</Text></View><SymbolView name={icon("function", "functions")} tintColor={c.accent} size={20} /></View><View style={[styles.divider, { backgroundColor: c.border }]} /><SummaryRow label="Species" value={species} /><SummaryRow label="Diameter used" value={`${dbh} ${dbhUnit}`} /><View style={[styles.result, { backgroundColor: c.bg, borderColor: c.border }]}><Text style={[styles.resultLabel, { color: c.muted }]}>Calculated basal area</Text><Text style={[styles.resultValue, { color: c.text }]}>{basalArea === null ? "—" : `${basalArea.toFixed(2)} cm²`}</Text></View><Text style={[styles.noteText, { color: c.muted }]}>Diameter values entered in metres are converted to centimetres before calculation.</Text></View></View>;
+  return <View style={styles.stepContent}><View style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}><View style={styles.cardHeading}><View style={[styles.equationBadge, { backgroundColor: c.bg, borderColor: c.border }]}><Text style={[styles.badgeText, { color: c.muted }]}>Eq.1</Text></View><View style={styles.cardTitleBlock}><Text style={[styles.cardTitle, { color: c.text }]}>Basal area</Text><Text style={[styles.formula, { color: c.muted }]}>{BASAL_AREA_FORMULA?.expression ?? "Formula unavailable"}</Text></View><SymbolView name={icon("function", "functions")} tintColor={c.accent} size={20} /></View><View style={[styles.divider, { backgroundColor: c.border }]} /><SummaryRow label="Species" value={species} /><SummaryRow label="Diameter used" value={`${dbh} ${dbhUnit}`} /><View style={[styles.result, { backgroundColor: c.bg, borderColor: c.border }]}><Text style={[styles.resultLabel, { color: c.muted }]}>Calculated basal area</Text><Text style={[styles.resultValue, { color: c.text }]}>{basalArea === null ? "—" : `${basalArea.toFixed(2)} cm²`}</Text></View><Text style={[styles.noteText, { color: c.muted }]}>Diameter values entered in metres are converted to centimetres before calculation.</Text></View></View>;
 }
 
 function ReviewStep({ draft, basalArea }: { draft: InputDraft; basalArea: number | null }) {
   const c = useColors();
   const diameter = draft.measurements.find((entry) => entry.label === "Diameter at breast height");
   const height = draft.measurements.find((entry) => entry.label === "Tree height");
-  return <View style={styles.stepContent}><ReviewCard title="Site"><SummaryRow label="Site name" value={draft.site.name} /><SummaryRow label="Location" value={draft.site.location} /><SummaryRow label="Plot" value={draft.site.plotNumber} /><SummaryRow label="Method" value={draft.site.samplingMethod} /></ReviewCard><ReviewCard title="Species"><SummaryRow label="Selected species" value={draft.species} /><SummaryRow label="Individuals" value={draft.individualCount} /></ReviewCard><ReviewCard title="Measurements and result"><SummaryRow label="DBH" value={diameter ? `${diameter.value} ${diameter.unit}` : "—"} /><SummaryRow label="Height" value={height ? `${height.value} ${height.unit}` : "Not entered"} /><View style={[styles.result, { backgroundColor: c.bg, borderColor: c.border }]}><Text style={[styles.resultLabel, { color: c.muted }]}>Basal area</Text><Text style={[styles.resultValue, { color: c.text }]}>{basalArea === null ? "—" : `${basalArea.toFixed(2)} cm²`}</Text></View></ReviewCard></View>;
+  return <View style={styles.stepContent}><ReviewCard title="Site"><SummaryRow label="Site name" value={draft.site.name} /><SummaryRow label="Location" value={draft.site.location} /><SummaryRow label="Plot" value={draft.site.plotNumber} /><SummaryRow label="Method" value={draft.site.samplingMethod} /></ReviewCard><ReviewCard title="Species"><SummaryRow label="Selected species" value={draft.species} /><SummaryRow label="Individuals" value={draft.individualCount} /></ReviewCard><ReviewCard title="Measurements and result"><SummaryRow label="DBH" value={diameter?.value ? `${diameter.value} ${diameter.unit}` : "—"} /><SummaryRow label="Height" value={height?.value ? `${height.value} ${height.unit}` : "Not entered"} /><View style={[styles.result, { backgroundColor: c.bg, borderColor: c.border }]}><Text style={[styles.resultLabel, { color: c.muted }]}>Basal area</Text><Text style={[styles.resultValue, { color: c.text }]}>{basalArea === null ? "—" : `${basalArea.toFixed(2)} cm²`}</Text></View></ReviewCard></View>;
 }
 
 function ReviewCard({ title, children }: { title: string; children: ReactNode }) {
