@@ -1,8 +1,10 @@
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import { SymbolView, type SymbolViewProps } from "expo-symbols";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Button } from "@/components/Button";
+import { createProject } from "@/projects/model";
+import { loadProjects, saveProject } from "@/projects/storage";
 import { useColors } from "@/theme";
 
 // iOS uses SF Symbols; Android and web use Material Symbols (same pattern as the tab layout).
@@ -19,16 +21,6 @@ type Project = {
 };
 
 const HOUR = 3_600_000;
-const ago = (hours: number) => Date.now() - hours * HOUR;
-
-// Sample data from the Figma frame until projects are saved on the phone ("Project Initialization" on the board).
-const PROJECTS: Project[] = [
-  { id: "1", name: "Mt. Baloy Quadrat Survey", plots: 24, species: ["Narra", "Mahogany", "Gmelina"], edited: ago(2), synced: false },
-  { id: "2", name: "Riparian Transect A", plots: 12, species: ["Narra", "Falcata", "Mahogany", "Gmelina", "Bamboo"], edited: ago(26), synced: false },
-  { id: "3", name: "Mangrove Plot Set 2", plots: 8, species: ["Bakawan", "Pagatpat"], edited: ago(96), synced: false },
-  { id: "4", name: "Tigbauan Nursery Plots", plots: 16, species: ["Narra", "Mahogany", "Falcata", "Gmelina"], edited: ago(24 * 12), synced: true },
-  { id: "5", name: "Banate Coastal Survey", plots: 30, species: ["Bakawan", "Pagatpat", "Nipa"], edited: ago(24 * 40), synced: true },
-];
 
 const PREVIEW_COUNT = 3;
 // TODO: replace with real connectivity (e.g. @react-native-community/netinfo) when sync exists.
@@ -61,20 +53,52 @@ export default function Projects() {
   const [query, setQuery] = useState("");
   const [sortByName, setSortByName] = useState(false);
   const [showAll, setShowAll] = useState(false);
+  const [projects, setProjects] = useState<Project[]>([]);
+
+  useFocusEffect(
+    useCallback(() => {
+      setProjects(
+        loadProjects().map(({ project }) => ({
+          id: project.project_id,
+          name: project.name,
+          plots: 0,
+          species: project.data_block.organisms.species,
+          edited: Date.parse(project.date_last_edited),
+          synced: false,
+        })),
+      );
+    }, []),
+  );
 
   const results = useMemo(() => {
     const q = query.trim().toLowerCase();
-    const matches = PROJECTS.filter(
+    const matches = projects.filter(
       (p) => p.name.toLowerCase().includes(q) || p.species.some((s) => s.toLowerCase().includes(q)),
     );
     return matches.sort((a, b) => (sortByName ? a.name.localeCompare(b.name) : b.edited - a.edited));
-  }, [query, sortByName]);
+  }, [projects, query, sortByName]);
 
   // Searching shows every match; "See all" only applies to the default list.
   const searching = query.trim().length > 0;
   const visible = searching || showAll ? results : results.slice(0, PREVIEW_COUNT);
   const canExpand = !searching && results.length > PREVIEW_COUNT;
-  const waiting = PROJECTS.filter((p) => !p.synced).length;
+  const waiting = projects.filter((p) => !p.synced).length;
+
+  function createNewProject() {
+    const created = saveProject(createProject("New Project"));
+    setProjects((current) => [
+      ...current,
+      {
+        id: created.project.project_id,
+        name: created.project.name,
+        plots: 0,
+        species: [],
+        edited: Date.parse(created.project.date_last_edited),
+        synced: false,
+      },
+    ]);
+    router.push({ pathname: "/input", params: { projectId: created.project.project_id } });
+  }
 
   return (
     <ScrollView style={{ backgroundColor: c.bg }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
@@ -102,7 +126,7 @@ export default function Projects() {
         </Pressable>
       </View>
 
-      <Button title="+ New vegetation analysis" onPress={() => router.navigate("/input")} />
+      <Button title="+ New vegetation analysis" onPress={createNewProject} />
 
       <View style={styles.sectionRow}>
         <Text style={[styles.section, { color: c.text }]}>
@@ -120,8 +144,7 @@ export default function Projects() {
           key={p.id}
           accessibilityRole="button"
           accessibilityLabel={`${p.name}, ${plural(p.plots, "plot")}, ${plural(p.species.length, "species")}`}
-          // TODO: open the project detail screen once it exists.
-          onPress={() => {}}
+          onPress={() => router.push({ pathname: "/input", params: { projectId: p.id } })}
           style={({ pressed }) => [
             styles.card,
             { backgroundColor: c.surface, borderColor: c.border, opacity: pressed ? 0.7 : 1 },
