@@ -25,7 +25,9 @@ export type ProjectDocument = {
 
 export function createProject(name: string, now = new Date()): ProjectDocument {
   const projectName = name.trim();
-  if (!projectName) throw new Error("Project name cannot be empty.");
+  if (!projectName) {
+    throw new Error("Project name cannot be empty.");
+  }
 
   const projectId = createUuid();
   const datablockId = createUuid();
@@ -52,12 +54,19 @@ export function createProject(name: string, now = new Date()): ProjectDocument {
 }
 
 export function withUpdatedTimestamp(document: ProjectDocument, now = new Date()): ProjectDocument {
-  return { project: { ...document.project, date_last_edited: now.toISOString() } };
+  return {
+    project: {
+      ...document.project,
+      date_last_edited: now.toISOString(),
+    },
+  };
 }
 
 function createUuid(): string {
   const cryptoApi = globalThis.crypto as Crypto & { randomUUID?: () => string } | undefined;
-  if (cryptoApi?.randomUUID) return cryptoApi.randomUUID();
+  if (cryptoApi?.randomUUID) {
+    return cryptoApi.randomUUID();
+  }
 
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (character) => {
     const random = Math.floor(Math.random() * 16);

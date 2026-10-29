@@ -13,17 +13,27 @@ export function saveProject(document: ProjectDocument): ProjectDocument {
   if (!projectIds.includes(projectId)) {
     storage.setItemSync(PROJECT_INDEX_KEY, JSON.stringify([...projectIds, projectId]));
   }
+
   return savedDocument;
 }
 
 export function renameProject(projectId: string, name: string): ProjectDocument {
   const document = loadProject(projectId);
-  if (document === null) throw new Error("Project not found.");
+  if (document === null) {
+    throw new Error("Project not found.");
+  }
 
   const projectName = name.trim();
-  if (!projectName) throw new Error("Project name cannot be empty.");
+  if (!projectName) {
+    throw new Error("Project name cannot be empty.");
+  }
 
-  return saveProject({ project: { ...document.project, name: projectName } });
+  return saveProject({
+    project: {
+      ...document.project,
+      name: projectName,
+    },
+  });
 }
 
 export function loadProject(projectId: string): ProjectDocument | null {
@@ -40,6 +50,7 @@ export function loadProjects(): ProjectDocument[] {
 function readProjectIds(): string[] {
   const value = storage.getItemSync(PROJECT_INDEX_KEY);
   if (value === null) return [];
+
   const parsed: unknown = JSON.parse(value);
   if (!Array.isArray(parsed) || !parsed.every((id): id is string => typeof id === "string")) {
     throw new Error("Stored project index is invalid.");
@@ -49,7 +60,9 @@ function readProjectIds(): string[] {
 
 function parseProjectDocument(value: string): ProjectDocument {
   const parsed: unknown = JSON.parse(value);
-  if (!isProjectDocument(parsed)) throw new Error("Stored project data is invalid.");
+  if (!isProjectDocument(parsed)) {
+    throw new Error("Stored project data is invalid.");
+  }
   return parsed;
 }
 
