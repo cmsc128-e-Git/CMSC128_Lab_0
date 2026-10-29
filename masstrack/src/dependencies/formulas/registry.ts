@@ -1,8 +1,9 @@
-import { add, average, type Formula } from "./formulas_actual";
+import { add, average, basalArea, type Formula } from "./formulas_actual";
 
 export type FormulaDefinition = {
   name: string;
   description: string;
+  expression?: string;
   calculate: Formula;
 };
 
@@ -16,6 +17,12 @@ const formulaDefinitions: Record<string, FormulaDefinition> = {
     name: "average",
     description: "Calculates the arithmetic mean of the supplied values.",
     calculate: average,
+  },
+  basal_area: {
+    name: "basal_area",
+    description: "Calculates basal area from diameter in centimetres.",
+    expression: "BA = π × (D/2)²",
+    calculate: basalArea,
   },
 };
 

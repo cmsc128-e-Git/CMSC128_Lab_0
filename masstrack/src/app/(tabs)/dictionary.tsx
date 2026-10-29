@@ -136,7 +136,7 @@ export default function Dictionary() {
 
   // Retrieve the actual registered formula definitions.
   const formulas = useMemo(
-    () => [get_formula("add"), get_formula("average")].filter(
+    () => [get_formula("add"), get_formula("average"), get_formula("basal_area")].filter(
       (formula) => formula !== undefined,
     ),
     [],
@@ -164,12 +164,7 @@ export default function Dictionary() {
           unit: "Function · numeric output",
           description: formula.description,
           kind: "Formulas" as DictionaryTab,
-          expression:
-            formula.name === "add"
-              ? "add(...values)"
-              : formula.name === "average"
-                ? "average(...values)"
-                : formula.name,
+          expression: formula.expression ?? `${formula.name}(...values)`,
           formulaName: formula.name,
         }));
     }
@@ -398,7 +393,9 @@ export default function Dictionary() {
                       <Text style={[styles.description, { color: c.muted }]}>
                         {entry.formulaName === "add"
                           ? "add(2, 3, 5) = 10"
-                          : "average(2, 4, 6) = 4"}
+                          : entry.formulaName === "average"
+                            ? "average(2, 4, 6) = 4"
+                            : "basal_area(10) = 78.54"}
                       </Text>
                     </View>
                   )}

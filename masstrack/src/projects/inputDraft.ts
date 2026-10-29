@@ -11,7 +11,7 @@ export type InputDraft = {
   individualCount: string;
   measurements: {
     label: string;
-    value: string;
+    value: string | null;
     unit: string;
   }[];
 };
@@ -26,7 +26,12 @@ export function loadInputDraft(projectId: string): InputDraft | null {
   const value = storage.getItemSync(`${INPUT_KEY_PREFIX}${projectId}`);
   if (value === null) return null;
 
-  const parsed: unknown = JSON.parse(value);
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    return null;
+  }
   if (!isLegacyInputDraft(parsed)) return null;
 
   return {
@@ -52,7 +57,7 @@ function isLegacyInputDraft(value: unknown): value is LegacyInputDraft {
         typeof entry === "object" &&
         entry !== null &&
         typeof entry.label === "string" &&
-        typeof entry.value === "string" &&
+        (typeof entry.value === "string" || entry.value === null) &&
         typeof entry.unit === "string",
     )
   );
