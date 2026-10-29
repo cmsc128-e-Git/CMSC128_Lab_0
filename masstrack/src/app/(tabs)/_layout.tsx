@@ -51,6 +51,7 @@ export default function TabLayout() {
           name={name}
           options={{
             title,
+            headerTitle: name === "input" ? "New analysis" : title,
             headerRight: name === "index" ? SettingsButton : undefined,
             // Active tab = filled accent pill with an inverted icon, so it reads by shape and brightness, not hue alone.
             tabBarIcon: ({ focused, color }) => (
