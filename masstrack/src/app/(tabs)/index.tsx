@@ -122,7 +122,7 @@ export default function Projects() {
         </Pressable>
       </View>
 
-      <Button title="+ New Project" onPress={createNewProject} />
+      <Button title="+ New vegetation analysis" onPress={createNewProject} />
 
       <View style={styles.sectionRow}>
         <Text style={[styles.section, { color: c.text }]}>
@@ -213,7 +213,6 @@ export default function Projects() {
                 <Text style={[styles.renameAction, { color: c.accent }]}>Save</Text>
               </Pressable>
             )}
-
             <View style={[styles.photo, styles.photoEmpty, { backgroundColor: c.bg, borderColor: c.border }]}>
               <SymbolView name={icon("photo", "image")} tintColor={c.muted} size={22} />
             </View>

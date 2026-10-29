@@ -18,3 +18,7 @@ export function average(...values: number[]): number {
 
   return add(...values) / values.length;
 }
+
+export function basalArea(diameter: number): number {
+  return Math.PI * Math.pow(diameter / 2, 2);
+}
