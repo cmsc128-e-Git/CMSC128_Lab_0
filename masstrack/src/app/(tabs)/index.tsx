@@ -24,12 +24,13 @@ const PREVIEW_COUNT = 3;
 const OFFLINE = true;
 
 const TOOLS = [
-  { label: "Import sheet", href: "/sheet", icon: icon("square.and.arrow.down", "upload_file") },
-  { label: "Formulas", href: "/dictionary", icon: icon("function", "function") },
-  { label: "Species", href: "/species", icon: icon("leaf", "eco") },
+  { label: "Import sheet", href: "/sheet" },
+  { label: "Formulas", href: "/dictionary" },
+  { label: "Species", href: "/species" },
 ] as const;
 
-const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+const plural = (n: number, word: string) =>
+  `${n} ${word === "species" || n === 1 ? word : `${word}s`}`;
 
 // "2h ago", "yesterday", "Mon", then "Oct 12".
 function formatEdited(ts: number) {
@@ -154,7 +155,9 @@ export default function Projects() {
           </Pressable>
         </View>
 
-        <Button title="+ New vegetation analysis" onPress={createNewProject} />
+        <View style={styles.primaryAction}>
+          <Button title="+ New vegetation analysis" onPress={createNewProject} />
+        </View>
 
         <View style={styles.sectionRow}>
           <Text style={[styles.section, { color: c.text }]}>
@@ -197,21 +200,6 @@ export default function Projects() {
                   edited {formatEdited(Date.parse(p.project.date_last_edited))}
                 </Text>
               </View>
-              {!isEditing && (
-                <View
-                  style={[
-                    styles.pill,
-                    {
-                      backgroundColor: isActive ? c.accent : c.bg,
-                      borderColor: isActive ? c.accent : c.border,
-                    },
-                  ]}
-                >
-                  <Text style={[styles.pillLabel, { color: isActive ? c.onAccent : c.muted }]}>
-                    {isActive ? "Active" : "Saved offline"}
-                  </Text>
-                </View>
-              )}
             </>
           );
 
@@ -277,17 +265,21 @@ export default function Projects() {
                   <SymbolView name={icon("trash", "delete")} tintColor={c.muted} size={20} />
                 </Pressable>
               )}
-              <View style={[styles.photo, styles.photoEmpty, { backgroundColor: c.bg, borderColor: c.border }]}>
-                <SymbolView name={icon("photo", "image")} tintColor={c.muted} size={22} />
-              </View>
             </View>
           );
         })}
 
         {visible.length === 0 && (
-          <Text style={[styles.empty, { color: c.muted }]}>
-            {query.trim() ? `No projects match “${query.trim()}”.` : "No Projects"}
-          </Text>
+          <View style={[styles.empty, { backgroundColor: c.surface }]}>
+            <Text style={[styles.emptyTitle, { color: c.text }]}>
+              {query.trim() ? "No matching projects" : "No projects yet"}
+            </Text>
+            <Text style={[styles.meta, { color: c.muted }]}>
+              {query.trim()
+                ? `No projects match “${query.trim()}”. Try another name or species.`
+                : "Create a vegetation analysis to start recording field measurements."}
+            </Text>
+          </View>
         )}
 
         <Text style={[styles.section, styles.toolsHeading, { color: c.text }]}>Quick tools</Text>
@@ -300,13 +292,10 @@ export default function Projects() {
               onPress={() => router.navigate(t.href)}
               style={({ pressed }) => [
                 styles.tool,
-                { backgroundColor: c.surface, borderColor: c.border, opacity: pressed ? 0.7 : 1 },
+                { opacity: pressed ? 0.65 : 1 },
               ]}
             >
-              <View style={[styles.toolIcon, { backgroundColor: c.bg }]}>
-                <SymbolView name={t.icon} tintColor={c.accent} size={22} />
-              </View>
-              <Text style={[styles.toolLabel, { color: c.text }]}>{t.label}</Text>
+              <Text style={[styles.toolLabel, { color: c.accent }]}>{t.label}</Text>
             </Pressable>
           ))}
         </View>
@@ -374,35 +363,32 @@ export default function Projects() {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 16, gap: 12, paddingBottom: 32 },
-  search: { flexDirection: "row", alignItems: "center", height: 48, borderWidth: 1, borderRadius: 12, paddingLeft: 12, gap: 8 },
+  content: { flexGrow: 1, alignSelf: "center", width: "100%", maxWidth: 1120, padding: 20, gap: 16, paddingBottom: 32 },
+  primaryAction: { width: "100%", maxWidth: 320, alignSelf: "center" },
+  search: { flexDirection: "row", alignItems: "center", height: 48, borderWidth: 1, borderRadius: 8, paddingLeft: 12, gap: 8 },
   input: { flex: 1, height: 48, fontSize: 15 },
   sort: { width: 48, height: 48, alignItems: "center", justifyContent: "center" },
   sectionRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", minHeight: 48 },
-  section: { fontSize: 17, fontWeight: "600" },
+  section: { fontSize: 18, fontWeight: "600" },
   seeAll: { minHeight: 48, minWidth: 48, alignItems: "flex-end", justifyContent: "center" },
   link: { fontSize: 15, fontWeight: "600" },
-  card: { flexDirection: "row", alignItems: "center", minHeight: 80, borderWidth: 1, borderRadius: 12, padding: 12, gap: 8 },
-  cardMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 12 },
-  photo: { width: 56, height: 56, borderRadius: 8 },
-  photoEmpty: { borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  card: { flexDirection: "row", alignItems: "center", minHeight: 76, borderWidth: 1, borderRadius: 8, paddingHorizontal: 8, gap: 4 },
+  cardMain: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
   cardText: { flex: 1, gap: 2 },
   renameInput: { minHeight: 36, borderBottomWidth: 1, fontSize: 16 },
   renameButton: { minHeight: 44, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
   renameAction: { fontSize: 14, fontWeight: "600" },
   pencil: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   deleteButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
-  name: { fontSize: 16, fontWeight: "600" },
+  name: { fontSize: 17, fontWeight: "600" },
   meta: { fontSize: 14 },
-  pill: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 5 },
-  pillLabel: { fontSize: 12 },
-  empty: { fontSize: 15, textAlign: "center", paddingVertical: 24 },
-  toolsHeading: { marginTop: 8 },
-  tools: { flexDirection: "row", gap: 8 },
-  tool: { flex: 1, minHeight: 96, borderWidth: 1, borderRadius: 12, alignItems: "center", justifyContent: "center", gap: 8, padding: 8 },
-  toolIcon: { width: 40, height: 40, borderRadius: 10, alignItems: "center", justifyContent: "center" },
-  toolLabel: { fontSize: 14, fontWeight: "500", textAlign: "center" },
-  notice: { borderWidth: 1, borderRadius: 12, padding: 12, gap: 4 },
+  empty: { borderRadius: 8, padding: 16, gap: 4 },
+  emptyTitle: { fontSize: 16, fontWeight: "600" },
+  toolsHeading: { marginTop: 4 },
+  tools: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
+  tool: { minHeight: 44, justifyContent: "center", paddingHorizontal: 8 },
+  toolLabel: { fontSize: 14, fontWeight: "600" },
+  notice: { borderWidth: 1, borderRadius: 8, padding: 14, gap: 6 },
   noticeTitle: { fontSize: 15, fontWeight: "600" },
   modalOverlay: { flex: 1, backgroundColor: "rgba(0, 0, 0, 0.5)", justifyContent: "center", alignItems: "center", padding: 24 },
   modalContainer: { width: "100%", maxWidth: 360, borderRadius: 16, padding: 20, gap: 12 },

@@ -259,12 +259,7 @@ export default function Dictionary() {
         )}
       </View>
 
-      <Text style={[styles.hint, { color: c.muted }]}>
-        Search by name or symbol. Expand a definition to see units and where
-        the formula is used.
-      </Text>
-
-      <View style={styles.tabs}>
+      <View style={[styles.tabs, { borderColor: c.border }]}>
         {TABS.map((tab) => {
           const selected = activeTab === tab;
 
@@ -280,15 +275,14 @@ export default function Dictionary() {
               style={[
                 styles.tab,
                 {
-                  backgroundColor: selected ? c.accent : c.surface,
-                  borderColor: selected ? c.accent : c.border,
+                  borderBottomColor: selected ? c.accent : "transparent",
                 },
               ]}
             >
               <Text
                 style={[
                   styles.tabText,
-                  { color: selected ? c.onAccent : c.text },
+                  { color: selected ? c.accent : c.text },
                 ]}
               >
                 {tab}
@@ -297,6 +291,10 @@ export default function Dictionary() {
           );
         })}
       </View>
+
+      <Text style={[styles.resultCount, { color: c.muted }]}>
+        {results.length} {results.length === 1 ? "entry" : "entries"}
+      </Text>
 
       <View style={styles.entries}>
         {results.map((entry) => {
@@ -324,20 +322,13 @@ export default function Dictionary() {
                 }
                 style={styles.cardHeader}
               >
-                <View
-                  style={[
-                    styles.symbolTile,
-                    { backgroundColor: c.bg },
-                  ]}
+                <Text
+                  style={[styles.symbol, { color: c.text }]}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
                 >
-                  <Text
-                    style={[styles.symbol, { color: c.text }]}
-                    numberOfLines={1}
-                    adjustsFontSizeToFit
-                  >
-                    {entry.symbol}
-                  </Text>
-                </View>
+                  {entry.symbol}
+                </Text>
 
                 <View style={styles.cardText}>
                   <Text
@@ -465,8 +456,12 @@ export default function Dictionary() {
 
 const styles = StyleSheet.create({
   content: {
-    padding: 16,
-    gap: 10,
+    flexGrow: 1,
+    alignSelf: "center",
+    width: "100%",
+    maxWidth: 920,
+    padding: 20,
+    gap: 14,
     paddingBottom: 32,
   },
   headingRow: {
@@ -476,8 +471,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   heading: {
-    fontSize: 17,
-    fontWeight: "600",
+    fontSize: 24,
+    fontWeight: "700",
   },
   helpButton: {
     minWidth: 44,
@@ -490,15 +485,15 @@ const styles = StyleSheet.create({
   },
   helpCard: {
     borderWidth: 1,
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 8,
+    padding: 14,
   },
   search: {
     flexDirection: "row",
     alignItems: "center",
     minHeight: 48,
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 8,
     paddingLeft: 12,
     gap: 8,
   },
@@ -509,58 +504,48 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   clearButton: {
-    width: 40,
+    width: 44,
     height: 44,
     alignItems: "center",
     justifyContent: "center",
   },
-  hint: {
-    fontSize: 12,
-    lineHeight: 17,
-  },
   tabs: {
     flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-    marginTop: 2,
-    marginBottom: 1,
+    borderBottomWidth: 1,
   },
   tab: {
-    minHeight: 38,
-    paddingHorizontal: 15,
-    borderRadius: 22,
-    borderWidth: 1,
+    flex: 1,
+    minHeight: 46,
+    paddingHorizontal: 8,
+    borderBottomWidth: 2,
     alignItems: "center",
     justifyContent: "center",
   },
   tabText: {
-    fontSize: 12,
-    fontWeight: "500",
+    fontSize: 14,
+    fontWeight: "600",
   },
+  resultCount: { fontSize: 13 },
   entries: {
-    gap: 6,
+    gap: 8,
   },
   card: {
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 8,
     overflow: "hidden",
   },
   cardHeader: {
-    minHeight: 54,
+    minHeight: 60,
     flexDirection: "row",
     alignItems: "center",
-    padding: 9,
-    gap: 10,
-  },
-  symbolTile: {
-    width: 38,
-    height: 38,
-    borderRadius: 8,
-    alignItems: "center",
-    justifyContent: "center",
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    gap: 14,
   },
   symbol: {
-    fontSize: 15,
+    width: 42,
+    textAlign: "center",
+    fontSize: 16,
     fontWeight: "700",
   },
   cardText: {
@@ -568,35 +553,35 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   name: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: "600",
   },
   meta: {
-    fontSize: 11,
-    lineHeight: 15,
+    fontSize: 13,
+    lineHeight: 18,
   },
   details: {
-    paddingHorizontal: 10,
-    paddingBottom: 10,
+    paddingHorizontal: 14,
+    paddingBottom: 14,
     gap: 10,
   },
   description: {
-    fontSize: 12,
-    lineHeight: 17,
+    fontSize: 14,
+    lineHeight: 21,
   },
   expression: {
     borderWidth: 1,
-    borderRadius: 8,
-    padding: 9,
+    borderRadius: 6,
+    padding: 12,
   },
   expressionText: {
-    fontSize: 12,
+    fontSize: 14,
   },
   example: {
     gap: 4,
   },
   exampleTitle: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "600",
   },
   footer: {
@@ -608,28 +593,28 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   usedIn: {
-    fontSize: 11,
+    fontSize: 13,
     flexShrink: 1,
   },
   openButton: {
-    minHeight: 36,
+    minHeight: 44,
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
   },
   openText: {
-    fontSize: 11,
+    fontSize: 13,
     fontWeight: "600",
   },
   emptyCard: {
     alignItems: "center",
     borderWidth: 1,
-    borderRadius: 12,
+    borderRadius: 8,
     padding: 24,
     gap: 10,
   },
   emptyTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: "600",
   },
 });

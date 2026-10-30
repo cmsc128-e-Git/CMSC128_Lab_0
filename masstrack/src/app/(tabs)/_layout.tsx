@@ -53,14 +53,17 @@ export default function TabLayout() {
             title,
             headerTitle: name === "input" ? "New analysis" : title,
             headerRight: name === "index" ? SettingsButton : undefined,
-            // Active tab = filled accent pill with an inverted icon, so it reads by shape and brightness, not hue alone.
+            // Keep the five-tab navigation; use an accent underline to mark the active destination.
             tabBarIcon: ({ focused, color }) => (
-              <View style={[styles.pill, focused && { backgroundColor: c.accent }]}>
-                <SymbolView name={icon} tintColor={focused ? c.onAccent : color} size={22} />
+              <View style={styles.pill}>
+                <SymbolView name={icon} tintColor={focused ? c.accent : color} size={22} />
               </View>
             ),
             tabBarLabel: ({ focused, color, children }) => (
-              <Text style={[styles.label, { color, fontWeight: focused ? "600" : "400" }]}>{children}</Text>
+              <View style={styles.labelWrap}>
+                <Text style={[styles.label, { color: focused ? c.accent : color, fontWeight: focused ? "600" : "400" }]}>{children}</Text>
+                <View style={[styles.activeIndicator, { backgroundColor: focused ? c.accent : "transparent" }]} />
+              </View>
             ),
           }}
         />
@@ -71,7 +74,9 @@ export default function TabLayout() {
 
 const styles = StyleSheet.create({
   title: { fontSize: 20, fontWeight: "600" },
-  pill: { width: 52, height: 28, borderRadius: 14, alignItems: "center", justifyContent: "center" },
-  label: { fontSize: 12, marginTop: 4 },
+  pill: { width: 52, height: 28, alignItems: "center", justifyContent: "center" },
+  labelWrap: { minWidth: 52, minHeight: 20, alignItems: "center", gap: 3 },
+  label: { fontSize: 12 },
+  activeIndicator: { width: 24, height: 2, borderRadius: 1 },
   headerButton: { width: 48, height: 48, alignItems: "center", justifyContent: "center", marginRight: 4 },
 });
