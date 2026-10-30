@@ -369,7 +369,10 @@ function GuidedInput({ activeProjectId }: { activeProjectId: string | null }) {
         </View>
 
         {renderStep()}
+      </ScrollView>
 
+      {/* Sibling of the ScrollView, so it stays pinned while the step scrolls. */}
+      <View style={[styles.footer, { backgroundColor: c.bg, borderColor: c.border }]}>
         <View style={styles.actions}>
           <Pressable accessibilityRole="button" accessibilityState={{ disabled: currentStep === 0 }} disabled={currentStep === 0} onPress={goBack} style={({ pressed }) => [styles.actionButton, { backgroundColor: c.surface, borderColor: c.border, opacity: currentStep === 0 ? 0.45 : pressed ? 0.75 : 1 }]}>
             <Text style={[styles.actionText, { color: c.text }]}>{backLabel}</Text>
@@ -378,7 +381,7 @@ function GuidedInput({ activeProjectId }: { activeProjectId: string | null }) {
             <Text style={[styles.actionText, { color: c.onAccent }]}>{nextLabel}</Text>
           </Pressable>
         </View>
-      </ScrollView>
+      </View>
     </KeyboardAvoidingView>
   );
 }
@@ -540,7 +543,8 @@ const styles = StyleSheet.create({
   result: { borderWidth: 1, borderRadius: 8, padding: 14, gap: 5 },
   resultLabel: { fontSize: 13, fontWeight: "600" },
   resultValue: { fontSize: 22, fontWeight: "700" },
-  actions: { flexDirection: "row", gap: 10 },
+  footer: { borderTopWidth: StyleSheet.hairlineWidth },
+  actions: { flexDirection: "row", gap: 10, alignSelf: "center", width: "100%", maxWidth: 920, paddingHorizontal: 20, paddingVertical: 12 },
   actionButton: { flex: 1, minHeight: 48, borderWidth: 1, borderRadius: 8, alignItems: "center", justifyContent: "center", paddingHorizontal: 10 },
   nextButton: { flex: 1.1 },
   actionText: { fontSize: 14, fontWeight: "600", textAlign: "center" },
