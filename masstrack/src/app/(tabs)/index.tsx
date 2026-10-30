@@ -322,7 +322,7 @@ export default function Projects() {
                 </Text>
 
                 <Text style={[styles.modalMessage, { color: c.muted }]}>
-                  Are you sure you want to delete "{projectToDelete?.name}" project?
+                  Are you sure you want to delete “{projectToDelete?.name}”?
                 </Text>
 
                 <View style={styles.modalActions}>
