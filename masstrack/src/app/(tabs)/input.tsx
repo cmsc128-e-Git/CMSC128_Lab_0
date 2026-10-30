@@ -6,7 +6,7 @@ import { calculate_formula, get_formula } from "@/dependencies/formulas/registry
 import { find_species } from "@/dependencies/species/species";
 import { loadInputDraft, saveInputDraft, type InputDraft } from "@/projects/inputDraft";
 import { createUuid, type Calculation, type Entry } from "@/projects/model";
-import { loadProject, setActiveProjectId, updateProject } from "@/projects/storage";
+import { loadActiveProjectId, loadProject, renameProject, setActiveProjectId, updateProject } from "@/projects/storage";
 import { useColors } from "@/theme";
 
 const icon = (ios: string, android: string) => ({ ios, android, web: android }) as SymbolViewProps["name"];
@@ -115,7 +115,8 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 
 export default function Input() {
   const { projectId } = useLocalSearchParams<{ projectId?: string }>();
-  const activeProjectId = typeof projectId === "string" ? projectId : null;
+  // Tapping the Input tab or "Open in calculator" has no projectId, so fall back to the last opened project.
+  const activeProjectId = typeof projectId === "string" ? projectId : loadActiveProjectId() || null;
 
   useEffect(() => {
     if (activeProjectId) setActiveProjectId(activeProjectId);
@@ -136,6 +137,7 @@ function GuidedInput({ activeProjectId }: { activeProjectId: string | null }) {
   const savedEquations = Array.from(new Set(initialDraft?.equations?.filter((equation) => get_formula(equation) !== undefined) ?? []));
   const savedProjectEquations = Array.from(new Set(projectEquations ?? []));
 
+  const [projectName, setProjectName] = useState(project?.project.name ?? "");
   const [currentStep, setCurrentStep] = useState<StepIndex>(0);
   const [siteName, setSiteName] = useState(initialDraft?.site.name ?? "");
   const [location, setLocation] = useState(initialDraft?.site.location ?? "");
@@ -215,6 +217,13 @@ function GuidedInput({ activeProjectId }: { activeProjectId: string | null }) {
       return false;
     }
     return true;
+  }
+
+  // A blank name puts back the last saved one instead of saving an empty project name.
+  function saveProjectName() {
+    if (!activeProjectId) return;
+    if (!projectName.trim()) return setProjectName(loadProject(activeProjectId)?.project.name ?? "");
+    renameProject(activeProjectId, projectName);
   }
 
   function persistDraft() {
@@ -306,8 +315,9 @@ function GuidedInput({ activeProjectId }: { activeProjectId: string | null }) {
         return <MeasureStep
           species={species}
           individuals={visibleIndividuals}
-          onIndividualChange={(index, field, value) => setIndividuals((current) =>
-            current.map((individual, row) => row === index ? { ...individual, [field]: value } : individual),
+          // Map the visible list, not the stored one: a restored draft can store fewer rows than it shows, which dropped edits.
+          onIndividualChange={(index, field, value) => setIndividuals(
+            visibleIndividuals.map((individual, row) => row === index ? { ...individual, [field]: value } : individual),
           )}
           equations={equations}
           setEquations={setEquations}
@@ -317,7 +327,7 @@ function GuidedInput({ activeProjectId }: { activeProjectId: string | null }) {
           }}
         />;
       case 3:
-        return <ComputeStep species={species} equations={equations} basalAreas={basalAreas} results={equationResults} />;
+        return <ComputeStep species={species} individuals={visibleIndividuals} equations={equations} basalAreas={basalAreas} results={equationResults} />;
       case 4:
         return <ReviewStep draft={buildDraft()} basalAreas={basalAreas} equations={equations} results={equationResults} />;
     }
@@ -329,10 +339,20 @@ function GuidedInput({ activeProjectId }: { activeProjectId: string | null }) {
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={[styles.screen, { backgroundColor: c.bg }]}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <View style={styles.projectContext}>
-          <Text numberOfLines={1} style={[styles.projectName, { color: c.text }]}>
-            {project?.project.name ?? "No project selected"}
-          </Text>
+        {/* Rename right after creating a project, without going back to Projects. */}
+        <View style={[styles.projectContext, { borderColor: c.border }]}>
+          <TextInput
+            accessibilityLabel="Project name"
+            value={projectName}
+            onChangeText={setProjectName}
+            onBlur={saveProjectName}
+            selectTextOnFocus
+            returnKeyType="done"
+            placeholder="Project name"
+            placeholderTextColor={c.inactive}
+            style={[styles.projectName, { color: c.text }]}
+          />
+          <SymbolView name={icon("pencil", "edit")} tintColor={c.muted} size={18} />
         </View>
 
         <View style={styles.steps} accessibilityLabel={`Step ${currentStep + 1} of ${STEPS.length}: ${STEP_TITLES[currentStep]}`}>
@@ -428,10 +448,10 @@ function MeasureStep(props: MeasureStepProps) {
 
 function MeasurementField({ label, value, onChange, unit, onUnitChange }: { label: string; value: string; onChange: (v: string) => void; unit: string; onUnitChange: (v: string) => void }) {
   const c = useColors();
-  return <View style={styles.measurementField}><Text style={[styles.label, { color: c.text }]}>{label}</Text><View style={styles.inputRow}><TextInput accessibilityLabel={label.replace(" *", "")} value={value} onChangeText={onChange} keyboardType="decimal-pad" placeholder="0.0" placeholderTextColor={c.inactive} style={[styles.numberInput, { backgroundColor: c.bg, borderColor: c.border, color: c.text }]} /><Dropdown label={`${label} unit`} value={unit} options={UNITS} onChange={onUnitChange} compact /></View></View>;
+  return <View style={styles.measurementField}><Text style={[styles.label, { color: c.text }]}>{label}</Text><View style={styles.inputRow}><TextInput accessibilityLabel={label.replace(" *", "")} value={value} onChangeText={onChange} keyboardType="decimal-pad" placeholder="0.0" placeholderTextColor={c.inactive} style={[styles.numberInput, { backgroundColor: c.bg, borderColor: c.border, color: c.text }]} /><Dropdown label={`${label.replace(" *", "")} unit`} value={unit} options={UNITS} onChange={onUnitChange} compact /></View></View>;
 }
 
-function ComputeStep({ species, equations, basalAreas, results }: { species: string; equations: string[]; basalAreas: (number | null)[]; results: Record<string, number[]> }) {
+function ComputeStep({ species, individuals, equations, basalAreas, results }: { species: string; individuals: IndividualMeasurement[]; equations: string[]; basalAreas: (number | null)[]; results: Record<string, number[]> }) {
   const c = useColors();
   return (
     <View style={styles.stepContent}>
@@ -444,7 +464,7 @@ function ComputeStep({ species, equations, basalAreas, results }: { species: str
             <View style={styles.cardHeading}><View style={[styles.equationBadge, { backgroundColor: c.bg, borderColor: c.border }]}><Text style={[styles.badgeText, { color: c.muted }]}>{`Eq.${index + 1}`}</Text></View><View style={styles.cardTitleBlock}><Text style={[styles.cardTitle, { color: c.text }]}>{formula?.name.replace("_", " ") ?? name}</Text><Text style={[styles.formula, { color: c.muted }]}>{formula?.expression ?? formula?.description}</Text></View></View>
             <View style={[styles.divider, { backgroundColor: c.border }]} />
             {name === "basal_area"
-              ? basalAreas.map((area, individualIndex) => <SummaryRow key={individualIndex} label={`Individual ${individualIndex + 1} basal area`} value={area === null ? "—" : `${area.toFixed(2)} cm²`} />)
+              ? basalAreas.map((area, individualIndex) => <SummaryRow key={individualIndex} label={`Individual ${individualIndex + 1} · D ${+toCentimetres(individuals[individualIndex].dbh, individuals[individualIndex].dbhUnit).toFixed(2)} cm`} value={area === null ? "—" : `${area.toFixed(2)} cm²`} />)
               : <View style={[styles.result, { backgroundColor: c.bg, borderColor: c.border }]}><Text style={[styles.resultLabel, { color: c.muted }]}>{name === "average" ? "Average basal area" : "Total basal area"}</Text><Text style={[styles.resultValue, { color: c.text }]}>{values[0] === undefined ? "—" : `${values[0].toFixed(2)} cm²`}</Text></View>}
           </View>
         );
@@ -467,8 +487,8 @@ function ReviewCard({ title, children }: { title: string; children: ReactNode })
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: { flexGrow: 1, alignSelf: "center", width: "100%", maxWidth: 920, padding: 20, paddingBottom: 32, gap: 18 },
-  projectContext: { paddingVertical: 2 },
-  projectName: { fontSize: 18, fontWeight: "600" },
+  projectContext: { flexDirection: "row", alignItems: "center", gap: 8, borderBottomWidth: 1 },
+  projectName: { flex: 1, minHeight: 48, fontSize: 18, fontWeight: "600" },
   emptyInput: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
   emptyInputText: { fontSize: 16, textAlign: "center" },
   steps: { flexDirection: "row", gap: 6 },
@@ -483,7 +503,7 @@ const styles = StyleSheet.create({
   fieldGroup: { gap: 7 },
   label: { fontSize: 14, fontWeight: "600" },
   textInput: { height: 48, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, fontSize: 15 },
-  readOnlyField: { minHeight: 48, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, justifyContent: "center" },
+  readOnlyField: { minHeight: 48, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, flexDirection: "row", alignItems: "center" },
   compactDropdown: { width: 82 },
   dropdown: { minHeight: 48, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8 },
   dropdownCompact: { paddingHorizontal: 10 },
@@ -526,10 +546,12 @@ const styles = StyleSheet.create({
   actionText: { fontSize: 14, fontWeight: "600", textAlign: "center" },
 });
 
-const toCentimetres = (value: string, unit: string) => (unit === "m" ? Number(value) * 100 : Number(value));
-const toMetres = (value: string, unit: string) => (unit === "cm" ? Number(value) / 100 : Number(value));
+// Plain decimals only ("12.5", "12,5", ".5"). Number() alone would also accept "0x10", "1e3", or "Infinity".
+const parseMeasure = (value: string) => (/^\s*(\d+([.,]\d*)?|[.,]\d+)\s*$/.test(value) ? Number(value.trim().replace(",", ".")) : NaN);
+const toCentimetres = (value: string, unit: string) => (unit === "m" ? parseMeasure(value) * 100 : parseMeasure(value));
+const toMetres = (value: string, unit: string) => (unit === "cm" ? parseMeasure(value) / 100 : parseMeasure(value));
 
-function isPositiveNumber(value: string): boolean { const number = Number(value); return value.trim().length > 0 && Number.isFinite(number) && number > 0; }
+function isPositiveNumber(value: string): boolean { return parseMeasure(value) > 0; }
 function isPositiveInteger(value: string): boolean { const number = Number(value); return value.trim().length > 0 && Number.isInteger(number) && number > 0; }
 
 function emptyIndividual(): IndividualMeasurement {

@@ -16,7 +16,7 @@ const tabs = [
   { name: "dictionary", title: "Dictionary", icon: icon("book.closed", "menu_book") },
 ];
 
-// Opens Settings from the Projects header, matching the site map (Projects → Settings).
+// Opens Settings from every tab header, so it is reachable without going back to Projects.
 function SettingsButton() {
   const c = useColors();
 
@@ -52,7 +52,7 @@ export default function TabLayout() {
           options={{
             title,
             headerTitle: name === "input" ? "New analysis" : title,
-            headerRight: name === "index" ? SettingsButton : undefined,
+            headerRight: SettingsButton,
             // Keep the five-tab navigation; use an accent underline to mark the active destination.
             tabBarIcon: ({ focused, color }) => (
               <View style={styles.pill}>
