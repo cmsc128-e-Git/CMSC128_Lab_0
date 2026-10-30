@@ -6,7 +6,7 @@ import { calculate_formula, get_formula } from "@/dependencies/formulas/registry
 import { find_species } from "@/dependencies/species/species";
 import { loadInputDraft, saveInputDraft, type InputDraft } from "@/projects/inputDraft";
 import { createUuid, type Calculation, type Entry } from "@/projects/model";
-import { loadActiveProjectId, loadProject, setActiveProjectId, updateProject } from "@/projects/storage";
+import { loadActiveProjectId, loadProject, renameProject, setActiveProjectId, updateProject } from "@/projects/storage";
 import { useColors } from "@/theme";
 
 const icon = (ios: string, android: string) => ({ ios, android, web: android }) as SymbolViewProps["name"];
@@ -137,6 +137,7 @@ function GuidedInput({ activeProjectId }: { activeProjectId: string | null }) {
   const savedEquations = Array.from(new Set(initialDraft?.equations?.filter((equation) => get_formula(equation) !== undefined) ?? []));
   const savedProjectEquations = Array.from(new Set(projectEquations ?? []));
 
+  const [projectName, setProjectName] = useState(project?.project.name ?? "");
   const [currentStep, setCurrentStep] = useState<StepIndex>(0);
   const [siteName, setSiteName] = useState(initialDraft?.site.name ?? "");
   const [location, setLocation] = useState(initialDraft?.site.location ?? "");
@@ -216,6 +217,13 @@ function GuidedInput({ activeProjectId }: { activeProjectId: string | null }) {
       return false;
     }
     return true;
+  }
+
+  // A blank name puts back the last saved one instead of saving an empty project name.
+  function saveProjectName() {
+    if (!activeProjectId) return;
+    if (!projectName.trim()) return setProjectName(loadProject(activeProjectId)?.project.name ?? "");
+    renameProject(activeProjectId, projectName);
   }
 
   function persistDraft() {
@@ -331,10 +339,20 @@ function GuidedInput({ activeProjectId }: { activeProjectId: string | null }) {
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={[styles.screen, { backgroundColor: c.bg }]}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <View style={styles.projectContext}>
-          <Text numberOfLines={1} style={[styles.projectName, { color: c.text }]}>
-            {project?.project.name ?? "No project selected"}
-          </Text>
+        {/* Rename right after creating a project, without going back to Projects. */}
+        <View style={[styles.projectContext, { borderColor: c.border }]}>
+          <TextInput
+            accessibilityLabel="Project name"
+            value={projectName}
+            onChangeText={setProjectName}
+            onBlur={saveProjectName}
+            selectTextOnFocus
+            returnKeyType="done"
+            placeholder="Project name"
+            placeholderTextColor={c.inactive}
+            style={[styles.projectName, { color: c.text }]}
+          />
+          <SymbolView name={icon("pencil", "edit")} tintColor={c.muted} size={18} />
         </View>
 
         <View style={styles.steps} accessibilityLabel={`Step ${currentStep + 1} of ${STEPS.length}: ${STEP_TITLES[currentStep]}`}>
@@ -469,8 +487,8 @@ function ReviewCard({ title, children }: { title: string; children: ReactNode })
 const styles = StyleSheet.create({
   screen: { flex: 1 },
   content: { flexGrow: 1, alignSelf: "center", width: "100%", maxWidth: 920, padding: 20, paddingBottom: 32, gap: 18 },
-  projectContext: { paddingVertical: 2 },
-  projectName: { fontSize: 18, fontWeight: "600" },
+  projectContext: { flexDirection: "row", alignItems: "center", gap: 8, borderBottomWidth: 1 },
+  projectName: { flex: 1, minHeight: 48, fontSize: 18, fontWeight: "600" },
   emptyInput: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
   emptyInputText: { fontSize: 16, textAlign: "center" },
   steps: { flexDirection: "row", gap: 6 },
