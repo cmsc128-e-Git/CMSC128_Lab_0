@@ -4,7 +4,13 @@ import { useCallback, useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Button } from "@/components/Button";
 import { createProject, type ProjectDocument } from "@/projects/model";
-import { loadProjects, renameProject, saveProject, setActiveProjectId } from "@/projects/storage";
+import {
+  loadActiveProjectId,
+  loadProjects,
+  renameProject,
+  saveProject,
+  setActiveProjectId,
+} from "@/projects/storage";
 import { useColors } from "@/theme";
 
 // iOS uses SF Symbols; Android and web use Material Symbols (same pattern as the tab layout).
@@ -44,12 +50,14 @@ export default function Projects() {
   const [sortByName, setSortByName] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [projects, setProjects] = useState<ProjectDocument[]>([]);
+  const [activeProjectId, setActiveProjectIdState] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
 
   useFocusEffect(
     useCallback(() => {
       setProjects(loadProjects());
+      setActiveProjectIdState(loadActiveProjectId());
     }, []),
   );
 
@@ -138,6 +146,7 @@ export default function Projects() {
 
       {visible.map((p) => {
         const id = p.project.project_id;
+        const isActive = activeProjectId === id;
         const isEditing = editingId === id;
 
         // Text (+ pill). Contains no buttons, so it can sit inside a Pressable or a View.
@@ -166,8 +175,18 @@ export default function Projects() {
               </Text>
             </View>
             {!isEditing && (
-              <View style={[styles.pill, { backgroundColor: c.bg, borderColor: c.border }]}>
-                <Text style={[styles.pillLabel, { color: c.muted }]}>Saved offline</Text>
+              <View
+                style={[
+                  styles.pill,
+                  {
+                    backgroundColor: isActive ? c.accent : c.bg,
+                    borderColor: isActive ? c.accent : c.border,
+                  },
+                ]}
+              >
+                <Text style={[styles.pillLabel, { color: isActive ? c.onAccent : c.muted }]}>
+                  {isActive ? "Active" : "Saved offline"}
+                </Text>
               </View>
             )}
           </>
@@ -176,7 +195,13 @@ export default function Projects() {
         return (
           <View
             key={id}
-            style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}
+            style={[
+              styles.card,
+              {
+                backgroundColor: isActive ? c.bg : c.surface,
+                borderColor: isActive ? c.accent : c.border,
+              },
+            ]}
           >
             {/* Pencil comes first (left of the name). It's a sibling of the main area, never a descendant. */}
             {!isEditing && (
@@ -196,9 +221,11 @@ export default function Projects() {
             ) : (
               <Pressable
                 accessibilityRole="button"
+                accessibilityState={{ selected: isActive }}
                 accessibilityLabel={`Open ${p.project.name}`}
                 onPress={() => {
                   setActiveProjectId(id);
+                  setActiveProjectIdState(id);
                   router.push({ pathname: "/input", params: { projectId: id } });
                 }}
                 style={({ pressed }) => [styles.cardMain, { opacity: pressed ? 0.7 : 1 }]}
