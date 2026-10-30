@@ -5,7 +5,8 @@ import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleShee
 import { calculate_formula, get_formula } from "@/dependencies/formulas/registry";
 import { find_species } from "@/dependencies/species/species";
 import { loadInputDraft, saveInputDraft, type InputDraft } from "@/projects/inputDraft";
-import { loadProject, saveProject } from "@/projects/storage";
+import { createUuid, type Entry } from "@/projects/model";
+import { loadProject, updateProject } from "@/projects/storage";
 import { useColors } from "@/theme";
 
 const icon = (ios: string, android: string) => ({ ios, android, web: android }) as SymbolViewProps["name"];
@@ -103,18 +104,17 @@ function GuidedInput({ activeProjectId }: { activeProjectId: string | null }) {
 
   const basalArea = useMemo(() => {
     if (!isPositiveNumber(dbh)) return null;
-    const diameterInCm = dbhUnit === "m" ? Number(dbh) * 100 : Number(dbh);
-    return calculate_formula("basal_area", diameterInCm) ?? null;
+    return calculate_formula("basal_area", toCentimetres(dbh, dbhUnit)) ?? null;
   }, [dbh, dbhUnit]);
 
-  function buildDraft(): InputDraft {
+  function buildDraft(dbhValue = dbh, heightValue = height): InputDraft {
     return {
       site: { name: siteName.trim(), location: location.trim(), plotNumber: plotNumber.trim(), samplingMethod },
       species,
       individualCount: individualCount.trim(),
       measurements: [
-        { label: "Diameter at breast height", value: dbh.trim(), unit: dbhUnit },
-        { label: "Tree height", value: height.trim() || null, unit: heightUnit },
+        { label: "Diameter at breast height", value: dbhValue.trim(), unit: dbhUnit },
+        { label: "Tree height", value: heightValue.trim() || null, unit: heightUnit },
       ],
     };
   }
@@ -139,15 +139,15 @@ function GuidedInput({ activeProjectId }: { activeProjectId: string | null }) {
     return true;
   }
 
-  function persistDraft(showConfirmation = false) {
-    if (!activeProjectId || !project) return;
+  function persistDraft() {
+    if (!activeProjectId) return;
     saveInputDraft(activeProjectId, buildDraft());
-    const organisms = project.project.data_block.organisms;
-    saveProject({
-      project: {
-        ...project.project,
+    updateProject(activeProjectId, (current) => {
+      const organisms = current.data_block.organisms;
+      return {
+        ...current,
         data_block: {
-          ...project.project.data_block,
+          ...current.data_block,
           organisms: {
             ...organisms,
             species: Array.from(new Set([...organisms.species, species])),
@@ -156,15 +156,38 @@ function GuidedInput({ activeProjectId }: { activeProjectId: string | null }) {
               : organisms.equations,
           },
         },
-      },
+      };
     });
-    if (showConfirmation) Alert.alert("Analysis saved", "The guided input is saved under this project.");
+  }
+
+  // Records the measured individual as a new row in the project's data sheet,
+  // then keeps site and species but clears the measurements for the next individual.
+  function saveEntry() {
+    if (!activeProjectId || basalArea === null) return;
+    const entry: Entry = {
+      entry_id: createUuid(),
+      species,
+      dbh_cm: toCentimetres(dbh, dbhUnit),
+      height_m: height.trim() ? toMetres(height, heightUnit) : null,
+      basal_area_cm2: basalArea,
+      date_created: new Date().toISOString(),
+    };
+    const saved = updateProject(activeProjectId, (current) => ({
+      ...current,
+      data_block: { ...current.data_block, entries: [...current.data_block.entries, entry] },
+    }));
+    saveInputDraft(activeProjectId, buildDraft("", ""));
+    setDbh("");
+    setHeight("");
+    setCurrentStep(2);
+    Alert.alert("Entry saved", `Row ${saved?.project.data_block.entries.length} added to the data sheet. Measure the next individual.`);
   }
 
   function goNext() {
     if (!validateStep(currentStep)) return;
-    persistDraft(currentStep === 4);
-    if (currentStep < 4) setCurrentStep((currentStep + 1) as StepIndex);
+    if (currentStep === 4) return saveEntry();
+    persistDraft();
+    setCurrentStep((currentStep + 1) as StepIndex);
   }
 
   function goBack() {
@@ -187,7 +210,7 @@ function GuidedInput({ activeProjectId }: { activeProjectId: string | null }) {
   }
 
   const backLabel = currentStep === 0 ? "Back" : `Back: ${STEPS[currentStep - 1]}`;
-  const nextLabel = currentStep === 4 ? "Save analysis" : `Next: ${STEPS[currentStep + 1]}`;
+  const nextLabel = currentStep === 4 ? "Save entry" : `Next: ${STEPS[currentStep + 1]}`;
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={[styles.screen, { backgroundColor: c.bg }]}>
@@ -270,6 +293,9 @@ const styles = StyleSheet.create({
   card: { borderWidth: 1, borderRadius: 12, padding: 14, gap: 14 }, cardHeading: { flexDirection: "row", alignItems: "center", gap: 10 }, equationBadge: { width: 42, height: 32, borderWidth: 1, borderRadius: 8, alignItems: "center", justifyContent: "center" }, badgeText: { fontSize: 12, fontWeight: "600" }, cardTitleBlock: { flex: 1, gap: 2 }, cardTitle: { fontSize: 15, fontWeight: "700" }, formula: { fontSize: 12 }, divider: { height: StyleSheet.hairlineWidth }, measurementField: { gap: 7 }, inputRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 }, numberInput: { flex: 1, height: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 16 }, note: { borderWidth: 1, borderRadius: 10, padding: 12, gap: 6 }, noteText: { fontSize: 12, lineHeight: 17 }, dictionaryText: { fontSize: 13, fontWeight: "600" },
   summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }, summaryLabel: { fontSize: 13, flex: 0.42 }, summaryValue: { fontSize: 13, fontWeight: "600", textAlign: "right", flex: 0.58 }, result: { borderWidth: 1, borderRadius: 10, padding: 14, gap: 5 }, resultLabel: { fontSize: 12, fontWeight: "600" }, resultValue: { fontSize: 22, fontWeight: "700" }, actions: { flexDirection: "row", gap: 10 }, actionButton: { flex: 1, minHeight: 48, borderWidth: 1, borderRadius: 10, alignItems: "center", justifyContent: "center", paddingHorizontal: 10 }, nextButton: { flex: 1.1 }, actionText: { fontSize: 14, fontWeight: "600", textAlign: "center" },
 });
+
+const toCentimetres = (value: string, unit: string) => (unit === "m" ? Number(value) * 100 : Number(value));
+const toMetres = (value: string, unit: string) => (unit === "cm" ? Number(value) / 100 : Number(value));
 
 function isPositiveNumber(value: string): boolean { const number = Number(value); return value.trim().length > 0 && Number.isFinite(number) && number > 0; }
 function isPositiveInteger(value: string): boolean { const number = Number(value); return value.trim().length > 0 && Number.isInteger(number) && number > 0; }
