@@ -1,5 +1,5 @@
 import { storage } from "@/storage";
-import { withUpdatedTimestamp, type ProjectDocument } from "./model";
+import { withUpdatedTimestamp, type Entry, type Project, type ProjectDocument } from "./model";
 
 const PROJECT_INDEX_KEY = "masstrack.projects.index";
 const PROJECT_KEY_PREFIX = "masstrack.project.";
@@ -34,6 +34,12 @@ export function renameProject(projectId: string, name: string): ProjectDocument 
       name: projectName,
     },
   });
+}
+
+// Reads the latest saved copy before applying a change, so an older in-memory copy can't overwrite newer data.
+export function updateProject(projectId: string, change: (project: Project) => Project): ProjectDocument | null {
+  const document = loadProject(projectId);
+  return document && saveProject({ project: change(document.project) });
 }
 
 export function loadProject(projectId: string): ProjectDocument | null {
@@ -73,7 +79,9 @@ function parseProjectDocument(value: string): ProjectDocument | null {
   if (!isProjectDocument(parsed)) {
     return null;
   }
-  return parsed;
+  // Projects saved before entries existed load with an empty table.
+  const dataBlock = parsed.project.data_block;
+  return { project: { ...parsed.project, data_block: { ...dataBlock, entries: dataBlock.entries ?? [] } } };
 }
 
 function isProjectDocument(value: unknown): value is ProjectDocument {
@@ -96,7 +104,20 @@ function isProjectDocument(value: unknown): value is ProjectDocument {
     Array.isArray(organisms.species) &&
     organisms.species.every((species: unknown) => typeof species === "string") &&
     Array.isArray(organisms.equations) &&
-    organisms.equations.every((equation: unknown) => typeof equation === "string")
+    organisms.equations.every((equation: unknown) => typeof equation === "string") &&
+    (dataBlock.entries === undefined || (Array.isArray(dataBlock.entries) && dataBlock.entries.every(isEntry)))
+  );
+}
+
+function isEntry(value: unknown): value is Entry {
+  return (
+    isRecord(value) &&
+    typeof value.entry_id === "string" &&
+    typeof value.species === "string" &&
+    typeof value.dbh_cm === "number" &&
+    (typeof value.height_m === "number" || value.height_m === null) &&
+    typeof value.basal_area_cm2 === "number" &&
+    typeof value.date_created === "string"
   );
 }
 
