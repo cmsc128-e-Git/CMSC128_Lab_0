@@ -4,6 +4,7 @@ import { withUpdatedTimestamp, type Entry, type Project, type ProjectDocument } 
 const PROJECT_INDEX_KEY = "masstrack.projects.index";
 const PROJECT_KEY_PREFIX = "masstrack.project.";
 const ACTIVE_PROJECT_KEY = "masstrack.active-project";
+const INPUT_DRAFT_KEY_PREFIX = "masstrack.project.input.";
 
 export function setActiveProjectId(projectId: string): void {
   storage.setItemSync(ACTIVE_PROJECT_KEY, projectId);
@@ -11,6 +12,20 @@ export function setActiveProjectId(projectId: string): void {
 
 export function loadActiveProjectId(): string | null {
   return storage.getItemSync(ACTIVE_PROJECT_KEY);
+}
+
+export function deleteProject(projectId: string): void {
+  const projectIds = readProjectIds().filter((id) => id !== projectId);
+
+  // The Expo SQLite store exposes setItemSync/getItemSync at runtime.
+  // Empty values are treated as missing by the project and draft readers.
+  storage.setItemSync(projectKey(projectId), "");
+  storage.setItemSync(`${INPUT_DRAFT_KEY_PREFIX}${projectId}`, "");
+  storage.setItemSync(PROJECT_INDEX_KEY, JSON.stringify(projectIds));
+
+  if (loadActiveProjectId() === projectId) {
+    storage.setItemSync(ACTIVE_PROJECT_KEY, "");
+  }
 }
 
 export function saveProject(document: ProjectDocument): ProjectDocument {

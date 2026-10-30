@@ -7,6 +7,7 @@ import { createProject, type ProjectDocument } from "@/projects/model";
 import {
   loadActiveProjectId,
   loadProjects,
+  deleteProject,
   renameProject,
   saveProject,
   setActiveProjectId,
@@ -52,6 +53,7 @@ export default function Projects() {
   const [projects, setProjects] = useState<ProjectDocument[]>([]);
   const [activeProjectId, setActiveProjectIdState] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
 
   useFocusEffect(
@@ -96,6 +98,15 @@ export default function Projects() {
     } catch (error) {
       Alert.alert("Unable to rename project", error instanceof Error ? error.message : "Please try again.");
     }
+  }
+
+  function deleteSelectedProject(projectId: string) {
+    deleteProject(projectId);
+    setProjects((current) => current.filter((item) => item.project.project_id !== projectId));
+    if (activeProjectId === projectId) {
+      setActiveProjectIdState(null);
+    }
+    setDeletingId(null);
   }
 
   function createNewProject() {
@@ -244,6 +255,36 @@ export default function Projects() {
                 <Text style={[styles.renameAction, { color: c.accent }]}>Save</Text>
               </Pressable>
             )}
+            {!isEditing && deletingId !== id && (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel={`Delete ${p.project.name}`}
+                onPress={() => setDeletingId(id)}
+                style={styles.deleteButton}
+              >
+                <SymbolView name={icon("trash", "delete")} tintColor={c.muted} size={20} />
+              </Pressable>
+            )}
+            {!isEditing && deletingId === id && (
+              <View style={styles.deleteActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Cancel delete"
+                  onPress={() => setDeletingId(null)}
+                  style={styles.deleteAction}
+                >
+                  <Text style={[styles.deleteCancel, { color: c.muted }]}>Cancel</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Confirm delete ${p.project.name}`}
+                  onPress={() => deleteSelectedProject(id)}
+                  style={[styles.deleteAction, { backgroundColor: c.accent }]}
+                >
+                  <Text style={[styles.deleteConfirm, { color: c.onAccent }]}>Delete</Text>
+                </Pressable>
+              </View>
+            )}
             <View style={[styles.photo, styles.photoEmpty, { backgroundColor: c.bg, borderColor: c.border }]}>
               <SymbolView name={icon("photo", "image")} tintColor={c.muted} size={22} />
             </View>
@@ -252,7 +293,9 @@ export default function Projects() {
       })}
 
       {visible.length === 0 && (
-        <Text style={[styles.empty, { color: c.muted }]}>No projects match “{query.trim()}”.</Text>
+        <Text style={[styles.empty, { color: c.muted }]}>
+          {query.trim() ? `No projects match “${query.trim()}”.` : "No Projects"}
+        </Text>
       )}
 
       <Text style={[styles.section, styles.toolsHeading, { color: c.text }]}>Quick tools</Text>
@@ -306,6 +349,11 @@ const styles = StyleSheet.create({
   renameButton: { minHeight: 44, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
   renameAction: { fontSize: 14, fontWeight: "600" },
   pencil: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  deleteButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  deleteActions: { flexDirection: "row", alignItems: "center", gap: 6 },
+  deleteAction: { minHeight: 40, justifyContent: "center", paddingHorizontal: 8, borderRadius: 8 },
+  deleteCancel: { fontSize: 12, fontWeight: "600" },
+  deleteConfirm: { fontSize: 12, fontWeight: "600" },
   name: { fontSize: 16, fontWeight: "600" },
   meta: { fontSize: 14 },
   pill: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 5 },
