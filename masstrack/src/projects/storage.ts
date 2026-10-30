@@ -129,7 +129,8 @@ function isProjectDocument(value: unknown): value is ProjectDocument {
     organisms.species.every((species: unknown) => typeof species === "string") &&
     Array.isArray(organisms.equations) &&
     organisms.equations.every((equation: unknown) => typeof equation === "string") &&
-    (dataBlock.entries === undefined || (Array.isArray(dataBlock.entries) && dataBlock.entries.every(isEntry)))
+    (dataBlock.entries === undefined || (Array.isArray(dataBlock.entries) && dataBlock.entries.every(isEntry))) &&
+    (dataBlock.calculations === undefined || (Array.isArray(dataBlock.calculations) && dataBlock.calculations.every(isCalculation)))
   );
 }
 
@@ -141,12 +142,34 @@ function isEntry(value: unknown): value is Entry {
     typeof value.dbh_cm === "number" &&
     (typeof value.height_m === "number" || value.height_m === null) &&
     typeof value.basal_area_cm2 === "number" &&
-    typeof value.date_created === "string"
+    typeof value.date_created === "string" &&
+    (value.results === undefined || isNumberRecord(value.results))
   );
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function isNumberRecord(value: unknown): value is Record<string, number> {
+  return isRecord(value) && Object.values(value).every((item) => typeof item === "number");
+}
+
+function isCalculation(value: unknown): boolean {
+  return (
+    isRecord(value) &&
+    typeof value.calculation_id === "string" &&
+    typeof value.species === "string" &&
+    Array.isArray(value.entry_ids) &&
+    value.entry_ids.every((id: unknown) => typeof id === "string") &&
+    Array.isArray(value.equations) &&
+    value.equations.every((equation: unknown) => typeof equation === "string") &&
+    isRecord(value.results) &&
+    Object.values(value.results).every(
+      (results) => Array.isArray(results) && results.every((result: unknown) => typeof result === "number"),
+    ) &&
+    typeof value.date_created === "string"
+  );
 }
 
 function projectKey(projectId: string): string {

@@ -1,5 +1,5 @@
 import { Stack } from "expo-router";
-import { Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { setThemePreference, useColors, useThemePreference, type ThemePreference } from "@/theme";
 
 const options: { value: ThemePreference; label: string }[] = [
@@ -13,13 +13,17 @@ export default function Settings() {
   const preference = useThemePreference();
 
   return (
-    <View style={styles.screen}>
+    <ScrollView style={{ backgroundColor: c.bg }} contentContainerStyle={styles.screen}>
       <Stack.Screen options={{ headerShown: true, title: "Settings" }} />
 
-      <Text style={[styles.heading, { color: c.text }]}>Appearance</Text>
+      <View style={styles.headingBlock}>
+        <Text style={[styles.heading, { color: c.text }]}>Appearance</Text>
+        <Text style={[styles.hint, { color: c.muted }]}>
+          Choose how MassTrack looks on this device.
+        </Text>
+      </View>
 
-      {/* Segmented control: all choices visible at once; the selected one is a filled accent segment. */}
-      <View role="radiogroup" aria-label="Appearance" style={[styles.group, { backgroundColor: c.surface, borderColor: c.border }]}>
+      <View role="radiogroup" aria-label="Appearance" style={[styles.group, { borderColor: c.border }]}>
         {options.map(({ value, label }) => {
           const selected = value === preference;
           return (
@@ -29,9 +33,9 @@ export default function Settings() {
               aria-checked={selected}
               aria-label={label}
               onPress={() => setThemePreference(value)}
-              style={[styles.option, selected && { backgroundColor: c.accent }]}
+              style={[styles.option, { borderBottomColor: selected ? c.accent : "transparent" }]}
             >
-              <Text style={[styles.label, { color: selected ? c.onAccent : c.text, fontWeight: selected ? "600" : "400" }]}>
+              <Text style={[styles.label, { color: selected ? c.text : c.muted, fontWeight: selected ? "600" : "400" }]}>
                 {label}
               </Text>
             </Pressable>
@@ -40,17 +44,18 @@ export default function Settings() {
       </View>
 
       <Text style={[styles.hint, { color: c.muted }]}>
-        System matches your phone. Light is easiest to read in direct sunlight.
+        System follows the appearance setting on your device.
       </Text>
-    </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1, padding: 16, gap: 8 },
-  heading: { fontSize: 16, fontWeight: "600" },
-  group: { flexDirection: "row", borderWidth: 1, borderRadius: 12, padding: 4, gap: 4 },
-  option: { flex: 1, height: 48, borderRadius: 8, alignItems: "center", justifyContent: "center" },
+  screen: { flexGrow: 1, alignSelf: "center", width: "100%", maxWidth: 720, padding: 20, gap: 20 },
+  headingBlock: { gap: 6 },
+  heading: { fontSize: 24, fontWeight: "700" },
+  group: { flexDirection: "row", borderBottomWidth: 1, gap: 8 },
+  option: { flex: 1, minHeight: 52, borderBottomWidth: 2, alignItems: "center", justifyContent: "center" },
   label: { fontSize: 15 },
-  hint: { fontSize: 13 },
+  hint: { fontSize: 14, lineHeight: 20 },
 });

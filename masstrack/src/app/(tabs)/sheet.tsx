@@ -38,15 +38,21 @@ export default function Sheet() {
 
   if (!document) {
     return (
-      <View style={[styles.empty, { backgroundColor: c.bg }]}>
-        <Text style={[styles.emptyTitle, { color: c.text }]}>No project yet</Text>
-        <Text style={[styles.note, { color: c.muted }]}>Create a project from the Projects tab to start recording data.</Text>
+      <View style={[styles.emptyScreen, { backgroundColor: c.bg }]}>
+        <View style={styles.empty}>
+          <Text style={[styles.emptyTitle, { color: c.text }]}>No project yet</Text>
+          <Text style={[styles.note, styles.emptyNote, { color: c.muted }]}>Create a project from the Projects tab to start recording data.</Text>
+          <View style={styles.primaryAction}>
+            <Button title="Go to projects" onPress={() => router.navigate("/")} />
+          </View>
+        </View>
       </View>
     );
   }
 
   const { project } = document;
   const entries = project.data_block.entries;
+  const calculations = project.data_block.calculations ?? [];
   const addEntry = () => router.push({ pathname: "/input", params: { projectId: project.project_id } });
 
   return (
@@ -61,63 +67,102 @@ export default function Sheet() {
       {entries.length === 0 ? (
         <Text style={[styles.note, { color: c.muted }]}>No entries yet. Measure an individual in Input to add the first row.</Text>
       ) : (
-        <View style={[styles.table, { borderColor: c.border }]}>
-          <View role="row" style={[styles.row, { backgroundColor: c.bg, borderColor: c.border }]}>
-            {COLUMNS.map((column, i) => (
-              <Text
-                key={column.label}
-                role="columnheader"
-                style={[styles.cell, styles.header, { width: column.width, flex: column.flex, color: c.text }, i === COLUMNS.length - 1 && { backgroundColor: c.border }]}
-              >
-                {column.label}
-              </Text>
-            ))}
-          </View>
-          {entries.map((entry, index) => (
-            <View
-              key={entry.entry_id}
-              role="row"
-              aria-label={`Row ${index + 1}: ${entry.species}, DBH ${entry.dbh_cm} centimetres, basal area ${entry.basal_area_cm2.toFixed(2)} square centimetres`}
-              style={[styles.row, { backgroundColor: c.surface, borderColor: c.border }]}
-            >
-              {[
-                String(index + 1),
-                entry.species,
-                entry.dbh_cm.toFixed(1),
-                entry.height_m === null ? "—" : entry.height_m.toFixed(1),
-                entry.basal_area_cm2.toFixed(2),
-              ].map((value, i) => (
+        <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+          <View style={[styles.table, { borderColor: c.border }]}>
+            <View role="row" style={[styles.row, { backgroundColor: c.bg, borderColor: c.border }]}>
+              {COLUMNS.map((column, i) => (
                 <Text
-                  key={COLUMNS[i].label}
-                  numberOfLines={1}
-                  style={[styles.cell, { width: COLUMNS[i].width, flex: COLUMNS[i].flex, color: c.text }, i === COLUMNS.length - 1 && [styles.calculated, { backgroundColor: c.bg }]]}
+                  key={column.label}
+                  role="columnheader"
+                  style={[styles.cell, styles.header, i > 1 && styles.numericCell, { width: column.width, flex: column.flex, color: c.text }]}
                 >
-                  {value}
+                  {column.label}
                 </Text>
               ))}
             </View>
-          ))}
-        </View>
+            {entries.map((entry, index) => (
+              <View
+                key={entry.entry_id}
+                role="row"
+                aria-label={`Row ${index + 1}: ${entry.species}, DBH ${entry.dbh_cm} centimetres, basal area ${entry.basal_area_cm2.toFixed(2)} square centimetres`}
+                style={[styles.row, { backgroundColor: c.surface, borderColor: c.border }]}
+              >
+                {[
+                  String(index + 1),
+                  entry.species,
+                  entry.dbh_cm.toFixed(1),
+                  entry.height_m === null ? "—" : entry.height_m.toFixed(1),
+                  entry.basal_area_cm2.toFixed(2),
+                ].map((value, i) => (
+                  <Text
+                    key={COLUMNS[i].label}
+                    numberOfLines={1}
+                    style={[styles.cell, i > 1 && styles.numericCell, { width: COLUMNS[i].width, flex: COLUMNS[i].flex, color: c.text }, i === COLUMNS.length - 1 && [styles.calculated, { backgroundColor: c.bg }]]}
+                  >
+                    {value}
+                  </Text>
+                ))}
+              </View>
+            ))}
+          </View>
+        </ScrollView>
       )}
 
       {entries.length > 0 && (
         <Text style={[styles.note, { color: c.muted }]}>* Calculated from DBH: BA = π × (D/2)². Read-only; add rows in Input.</Text>
       )}
-      <Button title="+ Add entry" onPress={addEntry} />
+      {calculations.length > 0 && (
+        <View style={styles.calculations}>
+          <Text style={[styles.sectionTitle, { color: c.text }]}>Saved calculations</Text>
+          {calculations.map((calculation) => (
+            <View key={calculation.calculation_id} style={[styles.calculation, { borderColor: c.border }]}>
+              <Text style={[styles.calculationTitle, { color: c.text }]}>
+                {calculation.species} · {calculation.entry_ids.length} {calculation.entry_ids.length === 1 ? "individual" : "individuals"}
+              </Text>
+              {calculation.equations.map((equation) => {
+                const values = calculation.results[equation] ?? [];
+                const label = equation === "basal_area"
+                  ? "Basal area per individual"
+                  : equation === "average"
+                    ? "Average basal area"
+                    : equation === "add"
+                      ? "Total basal area"
+                      : equation;
+                const value = equation === "basal_area"
+                  ? values.map((result) => result.toFixed(2)).join(", ")
+                  : values[0]?.toFixed(2) ?? "—";
+                return <Text key={equation} style={[styles.calculationResult, { color: c.muted }]}>{label}: {value} cm²</Text>;
+              })}
+            </View>
+          ))}
+        </View>
+      )}
+      <View style={styles.primaryAction}>
+        <Button title="+ Add entry" onPress={addEntry} />
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 16, gap: 12, paddingBottom: 32 },
+  content: { flexGrow: 1, alignSelf: "center", width: "100%", maxWidth: 1120, padding: 20, gap: 16, paddingBottom: 32 },
+  primaryAction: { width: "100%", maxWidth: 320, alignSelf: "center" },
   heading: { gap: 2 },
-  projectName: { fontSize: 18, fontWeight: "700" },
-  table: { borderWidth: 1, borderRadius: 10, overflow: "hidden" },
+  calculations: { gap: 10, paddingTop: 8 },
+  sectionTitle: { fontSize: 18, fontWeight: "700" },
+  calculation: { gap: 6, paddingVertical: 10, borderBottomWidth: StyleSheet.hairlineWidth },
+  calculationTitle: { fontSize: 14, fontWeight: "600" },
+  calculationResult: { fontSize: 13, lineHeight: 18 },
+  projectName: { fontSize: 22, fontWeight: "700" },
+  table: { borderWidth: 1, borderRadius: 8, overflow: "hidden", minWidth: 560 },
   row: { flexDirection: "row", minHeight: 48, borderBottomWidth: StyleSheet.hairlineWidth },
-  cell: { paddingHorizontal: 8, paddingVertical: 14, fontSize: 14 },
+  cell: { paddingHorizontal: 10, paddingVertical: 14, fontSize: 14 },
   header: { fontSize: 13, fontWeight: "700" },
+  numericCell: { textAlign: "right" },
   calculated: { fontWeight: "700" },
-  note: { fontSize: 13, lineHeight: 18 },
-  empty: { flex: 1, padding: 24, gap: 6, justifyContent: "center", alignItems: "center" },
-  emptyTitle: { fontSize: 17, fontWeight: "600" },
+  note: { fontSize: 14, lineHeight: 20 },
+  emptyScreen: { flex: 1, padding: 20, justifyContent: "center" },
+  empty: { width: "100%", maxWidth: 520, alignSelf: "center", alignItems: "center", gap: 12 },
+  emptyTitle: { fontSize: 24, fontWeight: "700" },
+  emptyNote: { textAlign: "center" },
 });

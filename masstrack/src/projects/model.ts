@@ -12,6 +12,17 @@ export type Entry = {
   dbh_cm: number;
   height_m: number | null;
   basal_area_cm2: number;
+  // Per-individual equation outputs. Older rows have none.
+  results?: Record<string, number>;
+  date_created: string;
+};
+
+export type Calculation = {
+  calculation_id: string;
+  species: string;
+  entry_ids: string[];
+  equations: string[];
+  results: Record<string, number[]>;
   date_created: string;
 };
 
@@ -20,6 +31,7 @@ export type DataBlock = {
   project_id: string;
   organisms: Organisms;
   entries: Entry[];
+  calculations?: Calculation[];
 };
 
 export type Project = {

@@ -9,6 +9,13 @@ export type InputDraft = {
   };
   species: string;
   individualCount: string;
+  equations?: string[];
+  individuals?: {
+    dbh: string;
+    height: string;
+    dbhUnit: string;
+    heightUnit: string;
+  }[];
   measurements: {
     label: string;
     value: string | null;
@@ -40,11 +47,16 @@ export function loadInputDraft(projectId: string): InputDraft | null {
       : { name: "", location: "", plotNumber: "", samplingMethod: "Quadrat" },
     species: parsed.species,
     individualCount: typeof parsed.individualCount === "string" ? parsed.individualCount : "1",
+    equations: Array.isArray(parsed.equations) && parsed.equations.every((equation) => typeof equation === "string")
+      ? parsed.equations
+      : undefined,
+    individuals: isIndividualDrafts(parsed.individuals) ? parsed.individuals : undefined,
     measurements: parsed.measurements,
   };
 }
 
-type LegacyInputDraft = Pick<InputDraft, "species" | "measurements"> & Partial<Pick<InputDraft, "site" | "individualCount">>;
+type LegacyInputDraft = Pick<InputDraft, "species" | "measurements"> &
+  Partial<Pick<InputDraft, "site" | "individualCount" | "equations" | "individuals">>;
 
 function isLegacyInputDraft(value: unknown): value is LegacyInputDraft {
   if (typeof value !== "object" || value === null) return false;
@@ -71,5 +83,21 @@ function isSiteDraft(value: unknown): value is InputDraft["site"] {
     typeof site.location === "string" &&
     typeof site.plotNumber === "string" &&
     typeof site.samplingMethod === "string"
+  );
+}
+
+function isIndividualDrafts(value: unknown): value is NonNullable<InputDraft["individuals"]> {
+  return (
+    Array.isArray(value) &&
+    value.length <= 100 &&
+    value.every(
+      (individual) =>
+        typeof individual === "object" &&
+        individual !== null &&
+        typeof individual.dbh === "string" &&
+        typeof individual.height === "string" &&
+        typeof individual.dbhUnit === "string" &&
+        typeof individual.heightUnit === "string",
+    )
   );
 }
