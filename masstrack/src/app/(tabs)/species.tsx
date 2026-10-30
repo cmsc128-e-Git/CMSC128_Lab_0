@@ -96,18 +96,11 @@ export default function Species() {
                       : species.species_name,
                   )
                 }
-                style={styles.cardHeader}
+                style={styles.cardHeader                }
               >
-                <View style={[styles.symbolTile, { backgroundColor: c.bg }]}>
-                  <SymbolView
-                    name={icon("leaf", "eco")}
-                    tintColor={c.text}
-                    size={22}
-                  />
-                </View>
-                <Text style={[styles.name, { color: c.text }]} numberOfLines={2}>
-                  {species.species_name}
-                </Text>
+                  <Text style={[styles.name, { color: c.text }]} numberOfLines={2}>
+                    {species.species_name}
+                  </Text>
                 <SymbolView
                   name={icon(
                     expanded ? "chevron.up" : "chevron.down",
@@ -163,55 +156,49 @@ export default function Species() {
 }
 
 const styles = StyleSheet.create({
-  content: { padding: 16, gap: 12, paddingBottom: 32 },
-  heading: { gap: 3 },
-  title: { fontSize: 18, fontWeight: "700" },
-  subtitle: { fontSize: 13, lineHeight: 18 },
+  content: { flexGrow: 1, alignSelf: "center", width: "100%", maxWidth: 920, padding: 20, gap: 16, paddingBottom: 32 },
+  heading: { gap: 6 },
+  title: { fontSize: 24, fontWeight: "700" },
+  subtitle: { fontSize: 14, lineHeight: 20 },
   search: {
     minHeight: 48,
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 8,
     paddingHorizontal: 12,
   },
   searchInput: { flex: 1, minHeight: 44, fontSize: 15 },
   clearButton: {
-    width: 32,
-    height: 40,
+    width: 44,
+    height: 44,
     alignItems: "center",
     justifyContent: "center",
   },
-  entries: { gap: 10 },
-  card: { borderWidth: 1, borderRadius: 10, overflow: "hidden" },
+  entries: { gap: 8 },
+  card: { borderWidth: 1, borderRadius: 8, overflow: "hidden" },
   cardHeader: {
-    minHeight: 64,
+    minHeight: 60,
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
-    padding: 12,
-  },
-  symbolTile: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: "center",
-    justifyContent: "center",
+    gap: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 8,
   },
   name: { flex: 1, fontSize: 16, fontWeight: "600" },
   details: { gap: 12, paddingHorizontal: 16, paddingBottom: 16 },
-  description: { fontSize: 14, lineHeight: 20 },
+  description: { fontSize: 14, lineHeight: 21 },
   traitsTitle: { fontSize: 14, fontWeight: "600" },
   traits: { gap: 7 },
   trait: { flexDirection: "row", gap: 8 },
   bullet: { fontSize: 16, lineHeight: 20 },
   traitText: { flex: 1, fontSize: 14, lineHeight: 20 },
   emptyCard: {
-    alignItems: "center",
+    alignItems: "flex-start",
     gap: 6,
     borderWidth: 1,
-    borderRadius: 10,
+    borderRadius: 8,
     padding: 24,
   },
   emptyTitle: { fontSize: 16, fontWeight: "600" },
