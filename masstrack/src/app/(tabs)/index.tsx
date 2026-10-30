@@ -1,10 +1,17 @@
 import { useFocusEffect, useRouter } from "expo-router";
 import { SymbolView, type SymbolViewProps } from "expo-symbols";
 import { useCallback, useMemo, useState } from "react";
-import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
+import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View, Modal } from "react-native";
 import { Button } from "@/components/Button";
 import { createProject, type ProjectDocument } from "@/projects/model";
-import { loadProjects, renameProject, saveProject } from "@/projects/storage";
+import {
+  loadActiveProjectId,
+  loadProjects,
+  deleteProject,
+  renameProject,
+  saveProject,
+  setActiveProjectId,
+} from "@/projects/storage";
 import { useColors } from "@/theme";
 
 // iOS uses SF Symbols; Android and web use Material Symbols (same pattern as the tab layout).
@@ -44,12 +51,19 @@ export default function Projects() {
   const [sortByName, setSortByName] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [projects, setProjects] = useState<ProjectDocument[]>([]);
+  const [activeProjectId, setActiveProjectIdState] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
+
+  const [projectToDelete, setProjectToDelete] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   useFocusEffect(
     useCallback(() => {
       setProjects(loadProjects());
+      setActiveProjectIdState(loadActiveProjectId());
     }, []),
   );
 
@@ -90,170 +104,272 @@ export default function Projects() {
     }
   }
 
+  function deleteSelectedProject(projectId: string) {
+    deleteProject(projectId);
+
+    setProjects((current) =>
+      current.filter((item) => item.project.project_id !== projectId)
+    );
+
+    if (activeProjectId === projectId) {
+      setActiveProjectIdState(null);
+    }
+  }
+
+  function confirmDeleteProject(projectId: string, projectName: string) {
+    setProjectToDelete({ id: projectId, name: projectName });
+  }
+
   function createNewProject() {
     const created = saveProject(createProject("New Project"));
+    setActiveProjectId(created.project.project_id);
     setProjects((current) => [...current, created]);
     router.push({ pathname: "/input", params: { projectId: created.project.project_id } });
   }
 
   return (
-    <ScrollView style={{ backgroundColor: c.bg }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-      {/* Sort lives inside the search bar so the header's gear stays dedicated to Settings. */}
-      <View style={[styles.search, { backgroundColor: c.surface, borderColor: c.border }]}>
-        <SymbolView name={icon("magnifyingglass", "search")} tintColor={c.muted} size={20} />
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search projects, species, formulas"
-          placeholderTextColor={c.muted}
-          accessibilityLabel="Search projects, species, formulas"
-          returnKeyType="search"
-          autoCorrect={false}
-          numberOfLines={1}
-          style={[styles.input, { color: c.text }]}
-        />
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel={`Sort projects. Currently by ${sortByName ? "name" : "last edited"}. Tap to change.`}
-          onPress={() => setSortByName((v) => !v)}
-          style={styles.sort}
-        >
-          <SymbolView name={icon("arrow.up.arrow.down", "sort")} tintColor={c.accent} size={22} />
-        </Pressable>
-      </View>
-
-      <Button title="+ New vegetation analysis" onPress={createNewProject} />
-
-      <View style={styles.sectionRow}>
-        <Text style={[styles.section, { color: c.text }]}>
-          {searching ? "Results" : sortByName ? "Projects A–Z" : "Recent projects"}
-        </Text>
-        {canExpand && (
-          <Pressable accessibilityRole="button" onPress={() => setShowAll((v) => !v)} style={styles.seeAll}>
-            <Text style={[styles.link, { color: c.accent }]}>{showAll ? "Show less" : "See all"}</Text>
-          </Pressable>
-        )}
-      </View>
-
-      {visible.map((p) => {
-        const id = p.project.project_id;
-        const isEditing = editingId === id;
-
-        // Text (+ pill). Contains no buttons, so it can sit inside a Pressable or a View.
-        const body = (
-          <>
-            <View style={styles.cardText}>
-              {isEditing ? (
-                <TextInput
-                  value={editingName}
-                  onChangeText={setEditingName}
-                  autoFocus
-                  accessibilityLabel="Project name"
-                  onSubmitEditing={() => finishRename(id)}
-                  style={[styles.renameInput, { color: c.text, borderColor: c.accent }]}
-                />
-              ) : (
-                <Text style={[styles.name, { color: c.text }]} numberOfLines={2}>
-                  {p.project.name}
-                </Text>
-              )}
-              <Text style={[styles.meta, { color: c.muted }]}>
-                {plural(p.project.data_block.organisms.species.length, "species")}
-              </Text>
-              <Text style={[styles.meta, { color: c.muted }]}>
-                edited {formatEdited(Date.parse(p.project.date_last_edited))}
-              </Text>
-            </View>
-            {!isEditing && (
-              <View style={[styles.pill, { backgroundColor: c.bg, borderColor: c.border }]}>
-                <Text style={[styles.pillLabel, { color: c.muted }]}>Saved offline</Text>
-              </View>
-            )}
-          </>
-        );
-
-        return (
-          <View
-            key={id}
-            style={[styles.card, { backgroundColor: c.surface, borderColor: c.border }]}
-          >
-            {/* Pencil comes first (left of the name). It's a sibling of the main area, never a descendant. */}
-            {!isEditing && (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Rename ${p.project.name}`}
-                onPress={() => startRename(p)}
-                style={styles.pencil}
-              >
-                <SymbolView name={icon("pencil", "edit")} tintColor={c.accent} size={20} />
-              </Pressable>
-            )}
-
-            {/* While renaming, the main area is a plain View so the TextInput isn't inside a button. */}
-            {isEditing ? (
-              <View style={styles.cardMain}>{body}</View>
-            ) : (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel={`Open ${p.project.name}`}
-                onPress={() => router.push({ pathname: "/input", params: { projectId: id } })}
-                style={({ pressed }) => [styles.cardMain, { opacity: pressed ? 0.7 : 1 }]}
-              >
-                {body}
-              </Pressable>
-            )}
-
-            {isEditing && (
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Save project name"
-                onPress={() => finishRename(id)}
-                style={styles.renameButton}
-              >
-                <Text style={[styles.renameAction, { color: c.accent }]}>Save</Text>
-              </Pressable>
-            )}
-            <View style={[styles.photo, styles.photoEmpty, { backgroundColor: c.bg, borderColor: c.border }]}>
-              <SymbolView name={icon("photo", "image")} tintColor={c.muted} size={22} />
-            </View>
-          </View>
-        );
-      })}
-
-      {visible.length === 0 && (
-        <Text style={[styles.empty, { color: c.muted }]}>No projects match “{query.trim()}”.</Text>
-      )}
-
-      <Text style={[styles.section, styles.toolsHeading, { color: c.text }]}>Quick tools</Text>
-      <View style={styles.tools}>
-        {TOOLS.map((t) => (
+    <>
+      <ScrollView style={{ backgroundColor: c.bg }} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        {/* Sort lives inside the search bar so the header's gear stays dedicated to Settings. */}
+        <View style={[styles.search, { backgroundColor: c.surface, borderColor: c.border }]}>
+          <SymbolView name={icon("magnifyingglass", "search")} tintColor={c.muted} size={20} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Search projects, species, formulas"
+            placeholderTextColor={c.muted}
+            accessibilityLabel="Search projects, species, formulas"
+            returnKeyType="search"
+            autoCorrect={false}
+            numberOfLines={1}
+            style={[styles.input, { color: c.text }]}
+          />
           <Pressable
-            key={t.label}
             accessibilityRole="button"
-            accessibilityLabel={t.label}
-            onPress={() => router.navigate(t.href)}
-            style={({ pressed }) => [
-              styles.tool,
-              { backgroundColor: c.surface, borderColor: c.border, opacity: pressed ? 0.7 : 1 },
-            ]}
+            accessibilityLabel={`Sort projects. Currently by ${sortByName ? "name" : "last edited"}. Tap to change.`}
+            onPress={() => setSortByName((v) => !v)}
+            style={styles.sort}
           >
-            <View style={[styles.toolIcon, { backgroundColor: c.bg }]}>
-              <SymbolView name={t.icon} tintColor={c.accent} size={22} />
-            </View>
-            <Text style={[styles.toolLabel, { color: c.text }]}>{t.label}</Text>
+            <SymbolView name={icon("arrow.up.arrow.down", "sort")} tintColor={c.accent} size={22} />
           </Pressable>
-        ))}
-      </View>
-
-      {OFFLINE && (
-        <View style={[styles.notice, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <Text style={[styles.noticeTitle, { color: c.text }]}>Offline · {waiting} waiting to sync</Text>
-          <Text style={[styles.meta, { color: c.muted }]}>
-            Projects stay on this device. Reconnect to sync. Import: review column matches before adding data.
-          </Text>
         </View>
-      )}
-    </ScrollView>
+
+        <Button title="+ New vegetation analysis" onPress={createNewProject} />
+
+        <View style={styles.sectionRow}>
+          <Text style={[styles.section, { color: c.text }]}>
+            {searching ? "Results" : sortByName ? "Projects A–Z" : "Recent projects"}
+          </Text>
+          {canExpand && (
+            <Pressable accessibilityRole="button" onPress={() => setShowAll((v) => !v)} style={styles.seeAll}>
+              <Text style={[styles.link, { color: c.accent }]}>{showAll ? "Show less" : "See all"}</Text>
+            </Pressable>
+          )}
+        </View>
+
+        {visible.map((p) => {
+          const id = p.project.project_id;
+          const isActive = activeProjectId === id;
+          const isEditing = editingId === id;
+
+          // Text (+ pill). Contains no buttons, so it can sit inside a Pressable or a View.
+          const body = (
+            <>
+              <View style={styles.cardText}>
+                {isEditing ? (
+                  <TextInput
+                    value={editingName}
+                    onChangeText={setEditingName}
+                    autoFocus
+                    accessibilityLabel="Project name"
+                    onSubmitEditing={() => finishRename(id)}
+                    style={[styles.renameInput, { color: c.text, borderColor: c.accent }]}
+                  />
+                ) : (
+                  <Text style={[styles.name, { color: c.text }]} numberOfLines={2}>
+                    {p.project.name}
+                  </Text>
+                )}
+                <Text style={[styles.meta, { color: c.muted }]}>
+                  {plural(p.project.data_block.organisms.species.length, "species")}
+                </Text>
+                <Text style={[styles.meta, { color: c.muted }]}>
+                  edited {formatEdited(Date.parse(p.project.date_last_edited))}
+                </Text>
+              </View>
+              {!isEditing && (
+                <View
+                  style={[
+                    styles.pill,
+                    {
+                      backgroundColor: isActive ? c.accent : c.bg,
+                      borderColor: isActive ? c.accent : c.border,
+                    },
+                  ]}
+                >
+                  <Text style={[styles.pillLabel, { color: isActive ? c.onAccent : c.muted }]}>
+                    {isActive ? "Active" : "Saved offline"}
+                  </Text>
+                </View>
+              )}
+            </>
+          );
+
+          return (
+            <View
+              key={id}
+              style={[
+                styles.card,
+                {
+                  backgroundColor: isActive ? c.bg : c.surface,
+                  borderColor: isActive ? c.accent : c.border,
+                },
+              ]}
+            >
+              {/* Pencil comes first (left of the name). It's a sibling of the main area, never a descendant. */}
+              {!isEditing && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Rename ${p.project.name}`}
+                  onPress={() => startRename(p)}
+                  style={styles.pencil}
+                >
+                  <SymbolView name={icon("pencil", "edit")} tintColor={c.accent} size={20} />
+                </Pressable>
+              )}
+
+              {/* While renaming, the main area is a plain View so the TextInput isn't inside a button. */}
+              {isEditing ? (
+                <View style={styles.cardMain}>{body}</View>
+              ) : (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ selected: isActive }}
+                  accessibilityLabel={`Open ${p.project.name}`}
+                  onPress={() => {
+                    setActiveProjectId(id);
+                    setActiveProjectIdState(id);
+                    router.push({ pathname: "/input", params: { projectId: id } });
+                  }}
+                  style={({ pressed }) => [styles.cardMain, { opacity: pressed ? 0.7 : 1 }]}
+                >
+                  {body}
+                </Pressable>
+              )}
+
+              {isEditing && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Save project name"
+                  onPress={() => finishRename(id)}
+                  style={styles.renameButton}
+                >
+                  <Text style={[styles.renameAction, { color: c.accent }]}>Save</Text>
+                </Pressable>
+              )}
+              {!isEditing && (
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`Delete ${p.project.name}`}
+                  onPress={() => confirmDeleteProject(id, p.project.name)}
+                  style={styles.deleteButton}
+                >
+                  <SymbolView name={icon("trash", "delete")} tintColor={c.muted} size={20} />
+                </Pressable>
+              )}
+              <View style={[styles.photo, styles.photoEmpty, { backgroundColor: c.bg, borderColor: c.border }]}>
+                <SymbolView name={icon("photo", "image")} tintColor={c.muted} size={22} />
+              </View>
+            </View>
+          );
+        })}
+
+        {visible.length === 0 && (
+          <Text style={[styles.empty, { color: c.muted }]}>
+            {query.trim() ? `No projects match “${query.trim()}”.` : "No Projects"}
+          </Text>
+        )}
+
+        <Text style={[styles.section, styles.toolsHeading, { color: c.text }]}>Quick tools</Text>
+        <View style={styles.tools}>
+          {TOOLS.map((t) => (
+            <Pressable
+              key={t.label}
+              accessibilityRole="button"
+              accessibilityLabel={t.label}
+              onPress={() => router.navigate(t.href)}
+              style={({ pressed }) => [
+                styles.tool,
+                { backgroundColor: c.surface, borderColor: c.border, opacity: pressed ? 0.7 : 1 },
+              ]}
+            >
+              <View style={[styles.toolIcon, { backgroundColor: c.bg }]}>
+                <SymbolView name={t.icon} tintColor={c.accent} size={22} />
+              </View>
+              <Text style={[styles.toolLabel, { color: c.text }]}>{t.label}</Text>
+            </Pressable>
+          ))}
+        </View>
+
+        {OFFLINE && (
+          <View style={[styles.notice, { backgroundColor: c.surface, borderColor: c.border }]}>
+            <Text style={[styles.noticeTitle, { color: c.text }]}>Offline · {waiting} waiting to sync</Text>
+            <Text style={[styles.meta, { color: c.muted }]}>
+              Projects stay on this device. Reconnect to sync. Import: review column matches before adding data.
+            </Text>
+          </View>
+        )}
+      </ScrollView>
+          <Modal
+            visible={projectToDelete !== null}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setProjectToDelete(null)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={[styles.modalContainer, { backgroundColor: c.surface }]}>
+                <Text style={[styles.modalTitle, { color: c.text }]}>
+                  Delete project
+                </Text>
+
+                <Text style={[styles.modalMessage, { color: c.muted }]}>
+                  Are you sure you want to delete "{projectToDelete?.name}" project?
+                </Text>
+
+                <View style={styles.modalActions}>
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => setProjectToDelete(null)}
+                    style={[styles.modalButton, { backgroundColor: c.bg, borderColor: c.border }]}
+                  >
+                    <Text style={[styles.modalCancel, { color: c.text }]}>
+                      Cancel
+                    </Text>
+                  </Pressable>
+
+                  <Pressable
+                    accessibilityRole="button"
+                    onPress={() => {
+                      if (projectToDelete) {
+                        deleteSelectedProject(projectToDelete.id);
+                        setProjectToDelete(null);
+                      }
+                    }}
+                    style={({ pressed }) => [
+                      styles.modalButton,
+                      styles.confirmDeleteButton,
+                      { opacity: pressed ? 0.7 : 1 },
+                    ]}
+                  >
+                    <Text style={styles.modalDelete}>
+                      Delete
+                    </Text>
+                  </Pressable>
+                </View>
+              </View>
+            </View>
+          </Modal>
+    </>
   );
 }
 
@@ -275,6 +391,7 @@ const styles = StyleSheet.create({
   renameButton: { minHeight: 44, paddingHorizontal: 8, alignItems: "center", justifyContent: "center" },
   renameAction: { fontSize: 14, fontWeight: "600" },
   pencil: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
+  deleteButton: { width: 44, height: 44, alignItems: "center", justifyContent: "center" },
   name: { fontSize: 16, fontWeight: "600" },
   meta: { fontSize: 14 },
   pill: { borderWidth: 1, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 5 },
@@ -287,4 +404,13 @@ const styles = StyleSheet.create({
   toolLabel: { fontSize: 14, fontWeight: "500", textAlign: "center" },
   notice: { borderWidth: 1, borderRadius: 12, padding: 12, gap: 4 },
   noticeTitle: { fontSize: 15, fontWeight: "600" },
+  modalOverlay: { flex: 1, backgroundColor: "rgba(0, 0, 0, 0.5)", justifyContent: "center", alignItems: "center", padding: 24 },
+  modalContainer: { width: "100%", maxWidth: 360, borderRadius: 16, padding: 20, gap: 12 },
+  modalTitle: { fontSize: 19, fontWeight: "600" },
+  modalMessage: { fontSize: 15, lineHeight: 22 },
+  modalActions: { flexDirection: "row", justifyContent: "flex-end", gap: 10, marginTop: 8 },
+  modalButton: { minWidth: 90, minHeight: 44, paddingHorizontal: 16, borderRadius: 10, borderWidth: 1, alignItems: "center", justifyContent: "center" },
+  modalCancel: { fontSize: 14, fontWeight: "600" },
+  confirmDeleteButton: { backgroundColor: "#DC2626", borderColor: "#DC2626" },
+  modalDelete: { color: "#FFFFFF", fontSize: 14, fontWeight: "600" },
 });

@@ -1,12 +1,12 @@
 import { useLocalSearchParams } from "expo-router";
 import { SymbolView, type SymbolViewProps } from "expo-symbols";
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Alert, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { calculate_formula, get_formula } from "@/dependencies/formulas/registry";
 import { find_species } from "@/dependencies/species/species";
 import { loadInputDraft, saveInputDraft, type InputDraft } from "@/projects/inputDraft";
 import { createUuid, type Entry } from "@/projects/model";
-import { loadProject, updateProject } from "@/projects/storage";
+import { loadProject, setActiveProjectId, updateProject } from "@/projects/storage";
 import { useColors } from "@/theme";
 
 const icon = (ios: string, android: string) => ({ ios, android, web: android }) as SymbolViewProps["name"];
@@ -32,7 +32,7 @@ function Dropdown({ label, value, options, onChange, compact = false }: Dropdown
   const [open, setOpen] = useState(false);
 
   return (
-    <View style={[styles.dropdownWrap, compact && styles.compactDropdown]}>
+    <View style={[styles.dropdownWrap, compact && styles.compactDropdown, open && styles.dropdownOpen]}>
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${label}: ${value}`}
@@ -80,6 +80,10 @@ export default function Input() {
   const { projectId } = useLocalSearchParams<{ projectId?: string }>();
   const activeProjectId = typeof projectId === "string" ? projectId : null;
 
+  useEffect(() => {
+    if (activeProjectId) setActiveProjectId(activeProjectId);
+  }, [activeProjectId]);
+
   return <GuidedInput key={activeProjectId ?? "no-project"} activeProjectId={activeProjectId} />;
 }
 
@@ -106,6 +110,16 @@ function GuidedInput({ activeProjectId }: { activeProjectId: string | null }) {
     if (!isPositiveNumber(dbh)) return null;
     return calculate_formula("basal_area", toCentimetres(dbh, dbhUnit)) ?? null;
   }, [dbh, dbhUnit]);
+
+  if (!project) {
+    return (
+      <View style={[styles.emptyInput, { backgroundColor: c.bg }]}>
+        <Text style={[styles.emptyInputText, { color: c.muted }]}>
+          Select a project or create a new one
+        </Text>
+      </View>
+    );
+  }
 
   function buildDraft(dbhValue = dbh, heightValue = height): InputDraft {
     return {
@@ -215,9 +229,10 @@ function GuidedInput({ activeProjectId }: { activeProjectId: string | null }) {
   return (
     <KeyboardAvoidingView behavior={Platform.OS === "ios" ? "padding" : undefined} style={[styles.screen, { backgroundColor: c.bg }]}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled" showsVerticalScrollIndicator={false}>
-        <View style={[styles.projectContext, { backgroundColor: c.surface, borderColor: c.border }]}>
-          <Text style={[styles.projectLabel, { color: c.muted }]}>Current project</Text>
-          <Text numberOfLines={1} style={[styles.projectName, { color: c.text }]}>{project?.project.name ?? "No project selected"}</Text>
+        <View style={styles.projectContext}>
+          <Text numberOfLines={1} style={[styles.projectName, { color: c.text }]}>
+            {project?.project.name ?? "No project selected"}
+          </Text>
         </View>
 
         <View style={styles.steps} accessibilityLabel={`Step ${currentStep + 1} of ${STEPS.length}: ${STEP_TITLES[currentStep]}`}>
@@ -287,9 +302,9 @@ function ReviewCard({ title, children }: { title: string; children: ReactNode })
 }
 
 const styles = StyleSheet.create({
-  screen: { flex: 1 }, content: { padding: 16, paddingBottom: 32, gap: 16 }, projectContext: { borderWidth: 1, borderRadius: 10, padding: 12, gap: 2 }, projectLabel: { fontSize: 12, fontWeight: "600" }, projectName: { fontSize: 16, fontWeight: "700" },
+  screen: { flex: 1 }, content: { padding: 16, paddingBottom: 32, gap: 16 }, projectContext: { paddingVertical: 4 }, projectName: { fontSize: 24, fontWeight: "700" }, emptyInput: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 }, emptyInputText: { fontSize: 16, textAlign: "center" },
   steps: { flexDirection: "row", gap: 4 }, stepItem: { flex: 1, gap: 7 }, stepLabel: { fontSize: 12, textAlign: "center" }, stepLine: { height: 3, borderRadius: 2 }, activeLine: { height: 4 }, headingBlock: { gap: 4 }, heading: { fontSize: 20, fontWeight: "700" }, helper: { fontSize: 13, lineHeight: 18 }, stepContent: { gap: 14 }, fieldGroup: { gap: 7 }, label: { fontSize: 14, fontWeight: "600" },
-  textInput: { height: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 15 }, readOnlyField: { minHeight: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, justifyContent: "center" }, dropdownWrap: { position: "relative", zIndex: 3 }, compactDropdown: { width: 82, zIndex: 4 }, dropdown: { minHeight: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8 }, dropdownCompact: { paddingHorizontal: 10 }, dropdownText: { flex: 1, fontSize: 14 }, menu: { position: "absolute", top: 52, left: 0, right: 0, borderWidth: 1, borderRadius: 10, overflow: "hidden", zIndex: 20, elevation: 8 }, menuItem: { minHeight: 46, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }, menuText: { flex: 1, fontSize: 14 },
+  textInput: { height: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 15 }, readOnlyField: { minHeight: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, justifyContent: "center" }, dropdownWrap: { position: "relative", zIndex: 1 }, compactDropdown: { width: 82 }, dropdownOpen: { zIndex: 100, elevation: 100 }, dropdown: { minHeight: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", gap: 8 }, dropdownCompact: { paddingHorizontal: 10 }, dropdownText: { flex: 1, fontSize: 14 }, menu: { position: "absolute", top: 52, left: 0, right: 0, borderWidth: 1, borderRadius: 10, overflow: "hidden", zIndex: 101, elevation: 101 }, menuItem: { minHeight: 46, paddingHorizontal: 12, flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 8 }, menuText: { flex: 1, fontSize: 14 },
   card: { borderWidth: 1, borderRadius: 12, padding: 14, gap: 14 }, cardHeading: { flexDirection: "row", alignItems: "center", gap: 10 }, equationBadge: { width: 42, height: 32, borderWidth: 1, borderRadius: 8, alignItems: "center", justifyContent: "center" }, badgeText: { fontSize: 12, fontWeight: "600" }, cardTitleBlock: { flex: 1, gap: 2 }, cardTitle: { fontSize: 15, fontWeight: "700" }, formula: { fontSize: 12 }, divider: { height: StyleSheet.hairlineWidth }, measurementField: { gap: 7 }, inputRow: { flexDirection: "row", alignItems: "flex-start", gap: 8 }, numberInput: { flex: 1, height: 48, borderWidth: 1, borderRadius: 10, paddingHorizontal: 12, fontSize: 16 }, note: { borderWidth: 1, borderRadius: 10, padding: 12, gap: 6 }, noteText: { fontSize: 12, lineHeight: 17 }, dictionaryText: { fontSize: 13, fontWeight: "600" },
   summaryRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: 16 }, summaryLabel: { fontSize: 13, flex: 0.42 }, summaryValue: { fontSize: 13, fontWeight: "600", textAlign: "right", flex: 0.58 }, result: { borderWidth: 1, borderRadius: 10, padding: 14, gap: 5 }, resultLabel: { fontSize: 12, fontWeight: "600" }, resultValue: { fontSize: 22, fontWeight: "700" }, actions: { flexDirection: "row", gap: 10 }, actionButton: { flex: 1, minHeight: 48, borderWidth: 1, borderRadius: 10, alignItems: "center", justifyContent: "center", paddingHorizontal: 10 }, nextButton: { flex: 1.1 }, actionText: { fontSize: 14, fontWeight: "600", textAlign: "center" },
 });
