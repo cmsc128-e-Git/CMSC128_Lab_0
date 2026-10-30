@@ -5,10 +5,21 @@ export type Organisms = {
   equations: string[];
 };
 
+// One measured individual (a row in the data sheet). Units are normalized on save.
+export type Entry = {
+  entry_id: string;
+  species: string;
+  dbh_cm: number;
+  height_m: number | null;
+  basal_area_cm2: number;
+  date_created: string;
+};
+
 export type DataBlock = {
   datablock_id: string;
   project_id: string;
   organisms: Organisms;
+  entries: Entry[];
 };
 
 export type Project = {
@@ -48,6 +59,7 @@ export function createProject(name: string, now = new Date()): ProjectDocument {
           species: [],
           equations: [],
         },
+        entries: [],
       },
     },
   };
@@ -62,7 +74,7 @@ export function withUpdatedTimestamp(document: ProjectDocument, now = new Date()
   };
 }
 
-function createUuid(): string {
+export function createUuid(): string {
   const cryptoApi = globalThis.crypto as Crypto & { randomUUID?: () => string } | undefined;
   if (cryptoApi?.randomUUID) {
     return cryptoApi.randomUUID();
