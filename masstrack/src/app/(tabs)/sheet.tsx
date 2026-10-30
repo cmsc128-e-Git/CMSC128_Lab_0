@@ -3,7 +3,7 @@ import { useCallback, useState } from "react";
 import { ScrollView, StyleSheet, Text, View } from "react-native";
 import { Button } from "@/components/Button";
 import type { ProjectDocument } from "@/projects/model";
-import { loadProject, loadProjects } from "@/projects/storage";
+import { loadActiveProjectId, loadProject, setActiveProjectId } from "@/projects/storage";
 import { useColors } from "@/theme";
 
 // Column widths are fixed so every row lines up; Species takes the remaining space.
@@ -15,11 +15,10 @@ const COLUMNS = [
   { label: "BA (cm²)*", width: 84 },
 ];
 
-// The project named in the URL, otherwise the most recently edited one.
+// The project named in the URL, otherwise the last project selected on the dashboard.
 function pickProject(projectId?: string): ProjectDocument | null {
-  if (projectId) return loadProject(projectId);
-  const projects = loadProjects().sort((a, b) => b.project.date_last_edited.localeCompare(a.project.date_last_edited));
-  return projects[0] ?? null;
+  const activeProjectId = projectId ?? loadActiveProjectId();
+  return activeProjectId ? loadProject(activeProjectId) : null;
 }
 
 export default function Sheet() {
@@ -29,7 +28,13 @@ export default function Sheet() {
   const [document, setDocument] = useState<ProjectDocument | null>(null);
 
   // Tabs stay mounted, so reload every time the Sheet tab comes into view to show newly saved rows.
-  useFocusEffect(useCallback(() => setDocument(pickProject(projectId)), [projectId]));
+  useFocusEffect(
+    useCallback(() => {
+      const next = pickProject(projectId);
+      if (next) setActiveProjectId(next.project.project_id);
+      setDocument(next);
+    }, [projectId]),
+  );
 
   if (!document) {
     return (

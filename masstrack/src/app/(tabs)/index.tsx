@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { Alert, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Button } from "@/components/Button";
 import { createProject, type ProjectDocument } from "@/projects/model";
-import { loadProjects, renameProject, saveProject } from "@/projects/storage";
+import { loadProjects, renameProject, saveProject, setActiveProjectId } from "@/projects/storage";
 import { useColors } from "@/theme";
 
 // iOS uses SF Symbols; Android and web use Material Symbols (same pattern as the tab layout).
@@ -92,6 +92,7 @@ export default function Projects() {
 
   function createNewProject() {
     const created = saveProject(createProject("New Project"));
+    setActiveProjectId(created.project.project_id);
     setProjects((current) => [...current, created]);
     router.push({ pathname: "/input", params: { projectId: created.project.project_id } });
   }
@@ -196,7 +197,10 @@ export default function Projects() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`Open ${p.project.name}`}
-                onPress={() => router.push({ pathname: "/input", params: { projectId: id } })}
+                onPress={() => {
+                  setActiveProjectId(id);
+                  router.push({ pathname: "/input", params: { projectId: id } });
+                }}
                 style={({ pressed }) => [styles.cardMain, { opacity: pressed ? 0.7 : 1 }]}
               >
                 {body}

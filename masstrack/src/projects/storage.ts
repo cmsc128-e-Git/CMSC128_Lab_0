@@ -3,6 +3,15 @@ import { withUpdatedTimestamp, type Entry, type Project, type ProjectDocument } 
 
 const PROJECT_INDEX_KEY = "masstrack.projects.index";
 const PROJECT_KEY_PREFIX = "masstrack.project.";
+const ACTIVE_PROJECT_KEY = "masstrack.active-project";
+
+export function setActiveProjectId(projectId: string): void {
+  storage.setItemSync(ACTIVE_PROJECT_KEY, projectId);
+}
+
+export function loadActiveProjectId(): string | null {
+  return storage.getItemSync(ACTIVE_PROJECT_KEY);
+}
 
 export function saveProject(document: ProjectDocument): ProjectDocument {
   const savedDocument = withUpdatedTimestamp(document);
